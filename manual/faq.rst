@@ -171,7 +171,7 @@ Device integration
 What devices does calibre support?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 calibre can directly connect to all the major (and most of the minor) e-book
-reading devices, smarthphones, tablets, etc.  In addition, using the
+reading devices, smartphones, tablets, etc.  In addition, using the
 :guilabel:`Connect to folder` function you can use it with any e-book reader
 that exports itself as a USB disk. Finally, you can connect wirelessly to any
 device that has a web browser using the calibre Content server.
@@ -209,6 +209,8 @@ Follow these steps to find the problem:
       no longer allows third party software to connect to their devices using a
       USB cable. Instead use a wireless connection, via the calibre Content
       server.
+    * If you are connecting a Kindle Fire HD or other Android device, read the note
+      under :ref:`android_usb`.
     * On macOS if you get permission errors when connecting a device to calibre, you can
       fix that by looking under :guilabel:`System Preferences > Security and
       Privacy > Privacy > Files and Folders`.
@@ -365,15 +367,17 @@ Android: Some examples (in no particular order):
 `Aldiko <https://play.google.com/store/apps/details?id=com.aldiko.android&hl=en>`_,
 `Kindle <https://play.google.com/store/apps/details?id=com.amazon.kindle&feature=related_apps>`_.
 
+.. _android_usb:
+
 Using a USB cable
 ^^^^^^^^^^^^^^^^^^^^
 
 Simply plug your device into the computer with a USB cable. calibre should
 automatically detect the device and then you can transfer books to it by
-clicking the :guilabel:`Send to device` button. calibre does not have support for every
-single android device out there, so if your device is not automatically
-detected, follow the instructions at :ref:`devsupport` to get your device
-supported in calibre.
+clicking the :guilabel:`Send to device` button. Note that on macOS and Linux
+only a single program can connect to an Android device at a time, so make
+sure the device is not opened in the OS File manager, or the Android File Transfer
+utility, etc.
 
 .. note:: With newer Android devices, you might have to jump through a few hoops
     to get the connection working, as Google really does not want you to be
@@ -381,9 +385,10 @@ supported in calibre.
     USB cable. When you plugin in the USB cable you will get a popup
     notification. Make sure it says some thing like "Transferring Media files"
     or "MTP (Media Transfer mode)". If it does not, tap the notification, and
-    change the mode to Media Transfer (MTP).  Finally, you might get a popup on
-    the device every time calibre or the operating system actually tries to
-    connect to it, asking for permission, tap OK.
+    change the mode to Media Transfer (MTP).  You may need to restart calibre
+    at this point in order for your device to be recognized.  Finally, you
+    might get a popup on the device every time calibre or the operating system
+    actually tries to connect to it, asking for permission, tap OK.
 
 Over the air
 ^^^^^^^^^^^^^^
@@ -434,7 +439,7 @@ this case the simplest solution is to adjust your router to forward requests on 
 
 Also some devices do not have browsers advanced enough to run the app-like
 interface used by the content server. For such devices, you can simply add
-``/mobile`` to the server URL to get a simplified, non-javascript interface.
+``/mobile`` to the server URL to get a simplified, non-JavaScript interface.
 
 
 I cannot send emails using calibre?
