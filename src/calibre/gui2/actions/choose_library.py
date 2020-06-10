@@ -204,7 +204,7 @@ class BackupStatus(QDialog):  # {{{
 class ChooseLibraryAction(InterfaceAction):
 
     name = 'Choose Library'
-    action_spec = (_('Choose Library'), 'lt.png',
+    action_spec = (_('Choose library'), 'lt.png',
             _('Choose calibre library to work with'), None)
     dont_add_to = frozenset(('context-menu-device',))
     action_add_menu = True
@@ -542,7 +542,7 @@ class ChooseLibraryAction(InterfaceAction):
         if d.error is None:
             if not question_dialog(self.gui, _('Success'),
                     _('Found no errors in your calibre library database.'
-                        ' Do you want calibre to check if the files in your '
+                        ' Do you want calibre to check if the files in your'
                         ' library match the information in the database?')):
                 return
         else:

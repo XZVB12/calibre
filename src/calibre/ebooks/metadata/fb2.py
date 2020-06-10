@@ -13,6 +13,7 @@ from string import ascii_letters, digits
 
 from lxml import etree
 
+from calibre import strftime
 from calibre.utils.date import parse_only_date
 from calibre.utils.img import save_cover_data_to
 from calibre.utils.xml_parse import safe_xml_fromstring
@@ -356,6 +357,22 @@ def _set_authors(title_info, mi, ctx):
                     ctx.create_tag(atag, 'last-name', at_start=False).text = ' '.join(author_parts)
 
 
+def _set_publisher(publish_info, mi, ctx):
+    if mi.is_null('publisher'):
+        return
+    ctx.clear_meta_tags(publish_info, 'publisher')
+    tag = ctx.create_tag(publish_info, 'publisher')
+    tag.text = mi.publisher
+
+
+def _set_pubdate(publish_info, mi, ctx):
+    if mi.is_null('pubdate'):
+        return
+    ctx.clear_meta_tags(publish_info, 'year')
+    tag = ctx.create_tag(publish_info, 'year')
+    tag.text = strftime('%Y', mi.pubdate)
+
+
 def _set_tags(title_info, mi, ctx):
     if not mi.is_null('tags'):
         ctx.clear_meta_tags(title_info, 'genre')
@@ -410,6 +427,7 @@ def set_metadata(stream, mi, apply_null=False, update_timestamp=False):
     ctx = Context(root)
     desc = ctx.get_or_create(root, 'description')
     ti = ctx.get_or_create(desc, 'title-info')
+    pi = ctx.get_or_create(desc, 'publish-info')
 
     indent = ti.text
 
@@ -418,6 +436,8 @@ def set_metadata(stream, mi, apply_null=False, update_timestamp=False):
     _set_tags(ti, mi, ctx)
     _set_authors(ti, mi, ctx)
     _set_title(ti, mi, ctx)
+    _set_publisher(pi, mi, ctx)
+    _set_pubdate(pi, mi, ctx)
     _set_cover(ti, mi, ctx)
 
     for child in ti:

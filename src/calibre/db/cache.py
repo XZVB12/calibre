@@ -163,7 +163,7 @@ class Cache(object):
     @write_api
     def ensure_has_search_category(self, fail_on_existing=True):
         if len(self._search_api.saved_searches.names()) > 0:
-            self.field_metadata.add_search_category(label='search', name=_('Searches'), fail_on_existing=fail_on_existing)
+            self.field_metadata.add_search_category(label='search', name=_('Saved searches'), fail_on_existing=fail_on_existing)
 
     def _initialize_dynamic_categories(self):
         # Reconstruct the user categories, putting them into field_metadata
@@ -1026,6 +1026,12 @@ class Cache(object):
                 return frozenset(self._search('', vl) & self._search('', search_restriction))
             return frozenset(self._search('', vl))
         return frozenset(self._search('', search_restriction))
+
+    @read_api
+    def number_of_books_in_virtual_library(self, vl=None, search_restriction=None):
+        if not vl and not search_restriction:
+            return len(self.fields['uuid'].table.book_col_map)
+        return len(self.books_in_virtual_library(vl, search_restriction))
 
     @api
     def get_categories(self, sort='name', book_ids=None, already_fixed=None,

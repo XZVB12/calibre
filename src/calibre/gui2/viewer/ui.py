@@ -32,6 +32,7 @@ from calibre.gui2.viewer.bookmarks import BookmarkManager
 from calibre.gui2.viewer.convert_book import (
     clean_running_workers, prepare_book, update_book
 )
+from calibre.gui2.viewer.highlights import HighlightsPanel
 from calibre.gui2.viewer.lookup import Lookup
 from calibre.gui2.viewer.overlay import LoadingOverlay
 from calibre.gui2.viewer.search import SearchPanel
@@ -47,7 +48,7 @@ from calibre.utils.ipc.simple_worker import WorkerError
 from calibre.utils.iso8601 import parse_iso8601
 from calibre.utils.monotonic import monotonic
 from calibre.utils.serialize import json_loads
-from polyglot.builtins import as_bytes, iteritems, itervalues
+from polyglot.builtins import as_bytes, iteritems, itervalues, as_unicode
 
 annotations_dir = os.path.join(viewer_config_dir, 'annots')
 
@@ -73,6 +74,7 @@ def dock_defs():
     d(_('Bookmarks'), 'bookmarks', Qt.RightDockWidgetArea)
     d(_('Search'), 'search', Qt.LeftDockWidgetArea)
     d(_('Inspector'), 'inspector', Qt.RightDockWidgetArea, Qt.AllDockWidgetAreas)
+    d(_('Highlights'), 'highlights', Qt.RightDockWidgetArea)
     return ans
 
 
@@ -99,6 +101,7 @@ class EbookViewer(MainWindow):
         connect_lambda(t.timeout, self, lambda self: self.save_annotations(in_book_file=False))
         self.pending_open_at = open_at
         self.base_window_title = _('E-book viewer')
+        self.setDockOptions(MainWindow.AnimatedDocks | MainWindow.AllowTabbedDocks | MainWindow.AllowNestedDocks)
         self.setWindowTitle(self.base_window_title)
         self.in_full_screen_mode = None
         self.image_popup = ImagePopup(self)
@@ -136,6 +139,9 @@ class EbookViewer(MainWindow):
 
         self.search_widget = w = SearchPanel(self)
         w.search_requested.connect(self.start_search)
+        w.hide_search_panel.connect(self.search_dock.close)
+        w.count_changed.connect(self.search_results_count_changed)
+        w.goto_cfi.connect(self.goto_cfi)
         self.search_dock.setWidget(w)
         self.search_dock.visibilityChanged.connect(self.search_widget.visibility_changed)
 
@@ -152,6 +158,9 @@ class EbookViewer(MainWindow):
         w.toggle_requested.connect(self.toggle_bookmarks)
         self.bookmarks_dock.setWidget(w)
 
+        self.highlights_widget = w = HighlightsPanel(self)
+        self.highlights_dock.setWidget(w)
+
         self.web_view = WebView(self)
         self.web_view.cfi_changed.connect(self.cfi_changed)
         self.web_view.reload_book.connect(self.reload_book)
@@ -161,6 +170,7 @@ class EbookViewer(MainWindow):
         self.search_widget.show_search_result.connect(self.web_view.show_search_result)
         self.web_view.search_result_not_found.connect(self.search_widget.search_result_not_found)
         self.web_view.toggle_bookmarks.connect(self.toggle_bookmarks)
+        self.web_view.toggle_highlights.connect(self.toggle_highlights)
         self.web_view.new_bookmark.connect(self.bookmarks_widget.create_requested)
         self.web_view.toggle_inspector.connect(self.toggle_inspector)
         self.web_view.toggle_lookup.connect(self.toggle_lookup)
@@ -186,6 +196,7 @@ class EbookViewer(MainWindow):
         self.restore_state()
         self.actions_toolbar.update_visibility()
         self.dock_visibility_changed()
+        self.highlights_widget.request_highlight_action.connect(self.web_view.highlight_action)
         if continue_reading:
             self.continue_reading()
 
@@ -194,6 +205,7 @@ class EbookViewer(MainWindow):
         for k, v in iteritems(smap):
             rmap[v].append(k)
         self.actions_toolbar.set_tooltips(rmap)
+        self.highlights_widget.set_tooltips(rmap)
 
     def resizeEvent(self, ev):
         self.loading_overlay.resize(self.size())
@@ -282,14 +294,29 @@ class EbookViewer(MainWindow):
         self.toc_dock.setVisible(not self.toc_dock.isVisible())
 
     def show_search(self):
+        self.web_view.get_current_cfi(self.show_search_with_current_selection)
+
+    def search_results_count_changed(self, num=-1):
+        if num < 0:
+            tt = _('Search')
+        elif num == 0:
+            tt = _('Search :: no matches')
+        elif num == 1:
+            tt = _('Search :: one match')
+        else:
+            tt = _('Search :: {} matches').format(num)
+        self.search_dock.setWindowTitle(tt)
+
+    def show_search_with_current_selection(self, pos_data):
         self.search_dock.setVisible(True)
         self.search_dock.activateWindow()
         self.search_dock.raise_()
-        self.search_widget.focus_input()
+        self.search_widget.focus_input(pos_data.get('selected_text'))
 
     def start_search(self, search_query):
         name = self.web_view.current_content_file
         if name:
+            self.web_view.get_current_cfi(self.search_widget.set_anchor_cfi)
             self.search_widget.start_search(search_query, name)
             self.web_view.setFocus(Qt.OtherFocusReason)
 
@@ -300,6 +327,14 @@ class EbookViewer(MainWindow):
             self.web_view.setFocus(Qt.OtherFocusReason)
         else:
             self.bookmarks_widget.bookmarks_list.setFocus(Qt.OtherFocusReason)
+
+    def toggle_highlights(self):
+        is_visible = self.highlights_dock.isVisible()
+        self.highlights_dock.setVisible(not is_visible)
+        if is_visible:
+            self.web_view.setFocus(Qt.OtherFocusReason)
+        else:
+            self.highlights_widget.focus()
 
     def toggle_lookup(self):
         self.lookup_dock.setVisible(not self.lookup_dock.isVisible())
@@ -317,8 +352,11 @@ class EbookViewer(MainWindow):
         # annotations will be saved in book file on exit
         self.save_annotations(in_book_file=False)
 
-    def bookmark_activated(self, cfi):
+    def goto_cfi(self, cfi):
         self.web_view.goto_cfi(cfi)
+
+    def bookmark_activated(self, cfi):
+        self.goto_cfi(cfi)
 
     def view_image(self, name):
         path = get_path_for_name(name)
@@ -448,7 +486,7 @@ class EbookViewer(MainWindow):
         self.web_view.clear_caches()
         if not ok:
             self.setWindowTitle(self.base_window_title)
-            tb = data['tb'].strip()
+            tb = as_unicode(data['tb'].strip(), errors='replace')
             tb = re.split(r'^calibre\.gui2\.viewer\.convert_book\.ConversionFailure:\s*', tb, maxsplit=1, flags=re.M)[-1]
             last_line = tuple(tb.strip().splitlines())[-1]
             if last_line.startswith('calibre.ebooks.DRMError'):
@@ -490,9 +528,11 @@ class EbookViewer(MainWindow):
                 initial_position = {'type': 'ref', 'data': open_at[len('ref:'):]}
             elif is_float(open_at):
                 initial_position = {'type': 'bookpos', 'data': float(open_at)}
+        highlights = self.current_book_data['annotations_map']['highlight']
+        self.highlights_widget.load(highlights)
         self.web_view.start_book_load(
             initial_position=initial_position,
-            highlights=list(map(serialize_annotation, self.current_book_data['annotations_map']['highlight']))
+            highlights=list(map(serialize_annotation, highlights))
         )
 
     def load_book_data(self):
@@ -570,6 +610,7 @@ class EbookViewer(MainWindow):
             h['timestamp'] = parse_iso8601(h['timestamp'], assume_utc=True)
         amap = self.current_book_data['annotations_map']
         amap['highlight'] = highlights
+        self.highlights_widget.refresh(highlights)
         self.save_annotations()
 
     def save_state(self):

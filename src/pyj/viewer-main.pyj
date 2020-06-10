@@ -241,6 +241,12 @@ def set_system_palette(system_colors):
 
 
 @from_python
+def highlight_action(uuid, which):
+    if view:
+        view.highlight_action(uuid, which)
+
+
+@from_python
 def show_home_page():
     view.overlay.open_book(False)
 
@@ -357,6 +363,8 @@ if window is window.top:
         to_python.toggle_toc()
     ui_operations.toggle_bookmarks = def():
         to_python.toggle_bookmarks()
+    ui_operations.toggle_highlights = def():
+        to_python.toggle_highlights()
     ui_operations.new_bookmark = def():
         to_python.new_bookmark()
     ui_operations.toggle_inspector = def():

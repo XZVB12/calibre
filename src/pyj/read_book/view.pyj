@@ -13,7 +13,9 @@ from dom import add_extra_css, build_rule, clear, set_css, svgicon, unique_id
 from iframe_comm import IframeWrapper
 from modals import error_dialog, warning_dialog
 from read_book.content_popup import ContentPopupOverlay
-from read_book.create_annotation import AnnotationsManager, CreateAnnotation, ViewAnnotation
+from read_book.create_annotation import (
+    AnnotationsManager, CreateAnnotation, ViewAnnotation
+)
 from read_book.globals import (
     current_book, runtime, set_current_spine_item, ui_operations
 )
@@ -22,6 +24,7 @@ from read_book.open_book import add_book_to_recently_viewed
 from read_book.overlay import Overlay
 from read_book.prefs.colors import resolve_color_scheme
 from read_book.prefs.font_size import change_font_size_by
+from read_book.prefs.fonts import current_zoom_step_size
 from read_book.prefs.head_foot import render_head_foot
 from read_book.prefs.scrolling import (
     MIN_SCROLL_SPEED_AUTO as SCROLL_SPEED_STEP, change_scroll_speed
@@ -147,7 +150,7 @@ def margin_elem(sd, which, id, onclick, oncontextmenu):
     fsz = min(max(0, sz - 6), maximum_font_size())
     s = '; text-overflow: ellipsis; white-space: nowrap; overflow: hidden'
     ans = E.div(
-        style=f'height:{sz}px; overflow: hidden; font-size:{fsz}px; width:100%; padding: 0; display: flex; justify-content: space-between; align-items: center',
+        style=f'height:{sz}px; overflow: hidden; font-size:{fsz}px; width:100%; padding: 0; display: flex; justify-content: space-between; align-items: center; user-select: none',
         id=id,
         E.div(style='margin-right: 1.5em' + s), E.div(style=s), E.div(style='margin-left: 1.5em' + s)
     )
@@ -169,7 +172,7 @@ def side_margin_elem(self, sd, which):
         E.div(class_='arrow', style='order: 3', svgicon(f'caret-{which}', '100%', '100%')),
         E.div(style='order:1'), E.div(style='order:2', class_='not-arrow'), E.div(style='order:4'),
 
-        style='width:{}px;'.format(sd.get(f'margin_{which}', 20)),
+        style='width:{}px; user-select: none'.format(sd.get(f'margin_{which}', 20)),
         class_='book-side-margin', id=f'book-{which}-margin',
         onclick=self.side_margin_clicked.bind(None, which),
         oncontextmenu=self.margin_context_menu.bind(None, which),
@@ -427,6 +430,10 @@ class View:
             ui_operations.toggle_toc()
         elif data.name is 'toggle_bookmarks':
             ui_operations.toggle_bookmarks()
+        elif data.name is 'toggle_highlights':
+            ui_operations.toggle_highlights()
+        elif data.name is 'create_annotation':
+            self.iframe_wrapper.send_message('create_annotation')
         elif data.name is 'new_bookmark':
             ui_operations.new_bookmark()
         elif data.name is 'toggle_inspector':
@@ -568,8 +575,11 @@ class View:
         )
 
     def bump_font_size(self, data):
-        delta = 2 if data.increase else -2
-        change_font_size_by(delta)
+        mult = 1 if data.increase else -1
+        frac = 0.2
+        if runtime.is_standalone_viewer:
+            frac = current_zoom_step_size() / 100
+        change_font_size_by(mult * frac)
 
     def on_show_footnote(self, data):
         self.show_content_popup()
@@ -830,6 +840,8 @@ class View:
         return {
             'margin_left': 0 if name is self.book.manifest.title_page_name else sd.get('margin_left'),
             'margin_right': 0 if name is self.book.manifest.title_page_name else sd.get('margin_right'),
+            'margin_top': 0 if name is self.book.manifest.title_page_name else sd.get('margin_top'),
+            'margin_bottom': 0 if name is self.book.manifest.title_page_name else sd.get('margin_bottom'),
             'read_mode': sd.get('read_mode'),
             'columns_per_screen': sd.get('columns_per_screen'),
             'color_scheme': cs,
@@ -1179,3 +1191,25 @@ class View:
             self.iframe_wrapper.send_message('show_search_result', search_result=sr)
         else:
             self.show_name(sr.file_name, initial_position={'type':'search_result', 'search_result':sr, 'replace_history':True})
+
+    def highlight_action(self, uuid, which):
+        if self.create_annotation.is_visible:
+            return
+        if which is 'create':
+            self.iframe_wrapper.send_message('create_annotation')
+            return
+        spine = self.book.manifest.spine
+        spine_index = self.annotations_manager.spine_index_for_highlight(uuid, spine)
+        if spine_index < 0 or spine_index >= spine.length:
+            return
+        if which is 'edit':
+            if self.currently_showing.spine_index is spine_index:
+                self.create_annotation.edit_highlight(uuid)
+            else:
+                self.show_name(spine[spine_index], initial_position={'type':'edit_annotation', 'uuid': uuid, 'replace_history':True})
+        elif which is 'delete':
+            self.create_annotation.remove_highlight(uuid)
+        elif which is 'goto':
+            cfi = self.annotations_manager.cfi_for_highlight(uuid, spine_index)
+            if cfi:
+                self.goto_cfi(cfi)

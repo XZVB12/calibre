@@ -248,6 +248,7 @@ class ViewerBridge(Bridge):
     reload_book = from_js()
     toggle_toc = from_js()
     toggle_bookmarks = from_js()
+    toggle_highlights = from_js()
     new_bookmark = from_js()
     toggle_inspector = from_js()
     toggle_lookup = from_js()
@@ -290,6 +291,7 @@ class ViewerBridge(Bridge):
     goto_frac = to_js()
     trigger_shortcut = to_js()
     set_system_palette = to_js()
+    highlight_action = to_js()
     show_search_result = to_js()
     prepare_for_close = to_js()
     viewer_font_size_changed = to_js()
@@ -316,6 +318,7 @@ def apply_font_settings(page_or_view):
     s.setFontFamily(s.StandardFont, s.fontFamily(sf))
     old_minimum = s.fontSize(s.MinimumFontSize)
     old_base = s.fontSize(s.DefaultFontSize)
+    old_fixed_base = s.fontSize(s.DefaultFixedFontSize)
     mfs = fs.get('minimum_font_size')
     if mfs is None:
         s.resetFontSize(s.MinimumFontSize)
@@ -324,8 +327,10 @@ def apply_font_settings(page_or_view):
     bfs = sd.get('base_font_size')
     if bfs is not None:
         s.setFontSize(s.DefaultFontSize, bfs)
+        s.setFontSize(s.DefaultFixedFontSize, int(bfs * 13 / 16))
 
-    font_size_changed = old_minimum != s.fontSize(s.MinimumFontSize) or old_base != s.fontSize(s.DefaultFontSize)
+    font_size_changed = (old_minimum, old_base, old_fixed_base) != (
+            s.fontSize(s.MinimumFontSize), s.fontSize(s.DefaultFontSize), s.fontSize(s.DefaultFixedFontSize))
     if font_size_changed and hasattr(page_or_view, 'execute_when_ready'):
         page_or_view.execute_when_ready('viewer_font_size_changed')
 
@@ -439,6 +444,7 @@ class WebView(RestartingWebEngineView):
     search_result_not_found = pyqtSignal(object)
     find_next = pyqtSignal(object)
     toggle_bookmarks = pyqtSignal()
+    toggle_highlights = pyqtSignal()
     new_bookmark = pyqtSignal()
     toggle_inspector = pyqtSignal()
     toggle_lookup = pyqtSignal()
@@ -491,6 +497,7 @@ class WebView(RestartingWebEngineView):
         self.bridge.search_result_not_found.connect(self.search_result_not_found)
         self.bridge.find_next.connect(self.find_next)
         self.bridge.toggle_bookmarks.connect(self.toggle_bookmarks)
+        self.bridge.toggle_highlights.connect(self.toggle_highlights)
         self.bridge.new_bookmark.connect(self.new_bookmark)
         self.bridge.toggle_inspector.connect(self.toggle_inspector)
         self.bridge.toggle_lookup.connect(self.toggle_lookup)
@@ -545,12 +552,6 @@ class WebView(RestartingWebEngineView):
         ans = self._host_widget
         if ans is not None and not sip.isdeleted(ans):
             return ans
-
-    def change_zoom_by(self, steps=1):
-        # TODO: Add UI for this
-        ss = vprefs['session_data'].get('zoom_step_size') or 20
-        amt = (ss / 100) * steps
-        self._page.setZoomFactor(max(0.25, min(self._page.zoomFactor() + amt, 5)))
 
     def render_process_died(self):
         if self.dead_renderer_error_shown:
@@ -693,6 +694,9 @@ class WebView(RestartingWebEngineView):
 
     def prepare_for_close(self):
         self.execute_when_ready('prepare_for_close')
+
+    def highlight_action(self, uuid, which):
+        self.execute_when_ready('highlight_action', uuid, which)
 
     def contextMenuEvent(self, ev):
         ev.accept()
