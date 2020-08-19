@@ -13,7 +13,7 @@ __copyright__ = '2010, Kovid Goyal <kovid@kovidgoyal.net>'
 __docformat__ = 'restructuredtext en'
 
 import inspect, re, traceback, numbers
-from math import trunc
+from math import trunc, floor, ceil, modf
 
 from calibre import human_readable, prints
 from calibre.constants import DEBUG
@@ -284,6 +284,71 @@ class BuiltinDivide(BuiltinFormatterFunction):
         x = float(x if x and x != 'None' else 0)
         y = float(y if y and y != 'None' else 0)
         return unicode_type(x / y)
+
+
+class BuiltinCeiling(BuiltinFormatterFunction):
+    name = 'ceiling'
+    arg_count = 1
+    category = 'Arithmetic'
+    __doc__ = doc = _('ceiling(x) -- returns the smallest integer greater '
+                      'than or equal to x. Throws an exception if x is '
+                      'not a number.')
+
+    def evaluate(self, formatter, kwargs, mi, locals, x):
+        x = float(x if x and x != 'None' else 0)
+        return unicode_type(int(ceil(x)))
+
+
+class BuiltinFloor(BuiltinFormatterFunction):
+    name = 'floor'
+    arg_count = 1
+    category = 'Arithmetic'
+    __doc__ = doc = _('floor(x) -- returns the largest integer less '
+                      'than or equal to x. Throws an exception if x is '
+                      'not a number.')
+
+    def evaluate(self, formatter, kwargs, mi, locals, x):
+        x = float(x if x and x != 'None' else 0)
+        return unicode_type(int(floor(x)))
+
+
+class BuiltinRound(BuiltinFormatterFunction):
+    name = 'round'
+    arg_count = 1
+    category = 'Arithmetic'
+    __doc__ = doc = _('round(x) -- returns the nearest integer to x. '
+                      'Throws an exception if x is not a number.')
+
+    def evaluate(self, formatter, kwargs, mi, locals, x):
+        x = float(x if x and x != 'None' else 0)
+        return unicode_type(int(round(x)))
+
+
+class BuiltinMod(BuiltinFormatterFunction):
+    name = 'mod'
+    arg_count = 2
+    category = 'Arithmetic'
+    __doc__ = doc = _('mod(x) -- returns the remainder of x / y, where x, y, '
+                      'and the result are integers. Throws an exception if '
+                      'either x or y is not a number.')
+
+    def evaluate(self, formatter, kwargs, mi, locals, x, y):
+        x = float(x if x and x != 'None' else 0)
+        y = float(y if y and y != 'None' else 0)
+        return unicode_type(int(x % y))
+
+
+class BuiltinFractionalPart(BuiltinFormatterFunction):
+    name = 'fractional_part'
+    arg_count = 1
+    category = 'Arithmetic'
+    __doc__ = doc = _('fractional_part(x) -- returns the value after the decimal '
+                      'point.  For example, fractional_part(3.14) returns 0.14. '
+                      'Throws an exception if x is not a number.')
+
+    def evaluate(self, formatter, kwargs, mi, locals, x):
+        x = float(x if x and x != 'None' else 0)
+        return unicode_type(modf(x)[0])
 
 
 class BuiltinTemplate(BuiltinFormatterFunction):
@@ -1659,27 +1724,55 @@ class BuiltinRatingToStars(BuiltinFormatterFunction):
         return rating_to_stars(v, use_half_stars == '1')
 
 
+class BuiltinSwapAroundArticles(BuiltinFormatterFunction):
+    name = 'swap_around_articles'
+    arg_count = 2
+    category = 'String manipulation'
+    __doc__ = doc = _('swap_around_articles(val, separator) '
+                      '-- returns the val with articles moved to the end. '
+                      'The value can be a list, in which case each member '
+                      'of the list is processed. If the value is a list then '
+                      'you must provide the list value separator. If no '
+                      'separator is provided then the value is treated as '
+                      'being a single value, not a list.')
+
+    def evaluate(self, formatter, kwargs, mi, locals, val, separator):
+        if not val:
+            return ''
+        if not separator:
+            return title_sort(val).replace(',', ';')
+        result = []
+        try:
+            for v in [x.strip() for x in val.split(separator)]:
+                result.append(title_sort(v).replace(',', ';'))
+        except:
+            traceback.print_exc()
+        return separator.join(sorted(result, key=sort_key))
+
+
 _formatter_builtins = [
     BuiltinAdd(), BuiltinAnd(), BuiltinApproximateFormats(), BuiltinAssign(),
     BuiltinAuthorLinks(), BuiltinAuthorSorts(), BuiltinBooksize(),
-    BuiltinCapitalize(), BuiltinCheckYesNo(), BuiltinCmp(), BuiltinContains(),
+    BuiltinCapitalize(), BuiltinCheckYesNo(), BuiltinCeiling(),
+    BuiltinCmp(), BuiltinContains(),
     BuiltinCount(), BuiltinCurrentLibraryName(), BuiltinCurrentLibraryPath(),
     BuiltinDaysBetween(), BuiltinDivide(), BuiltinEval(), BuiltinFirstNonEmpty(),
-    BuiltinField(), BuiltinFinishFormatting(), BuiltinFirstMatchingCmp(),
+    BuiltinField(), BuiltinFinishFormatting(), BuiltinFirstMatchingCmp(), BuiltinFloor(),
     BuiltinFormatDate(), BuiltinFormatNumber(), BuiltinFormatsModtimes(),
-    BuiltinFormatsPaths(), BuiltinFormatsSizes(),
+    BuiltinFormatsPaths(), BuiltinFormatsSizes(), BuiltinFractionalPart(),
     BuiltinHasCover(), BuiltinHumanReadable(), BuiltinIdentifierInList(),
     BuiltinIfempty(), BuiltinLanguageCodes(), BuiltinLanguageStrings(),
     BuiltinInList(), BuiltinListDifference(), BuiltinListEquals(),
     BuiltinListIntersection(), BuiltinListitem(), BuiltinListRe(),
     BuiltinListReGroup(), BuiltinListSort(), BuiltinListUnion(), BuiltinLookup(),
-    BuiltinLowercase(), BuiltinMultiply(), BuiltinNot(), BuiltinOndevice(),
+    BuiltinLowercase(), BuiltinMod(), BuiltinMultiply(), BuiltinNot(), BuiltinOndevice(),
     BuiltinOr(), BuiltinPrint(), BuiltinRatingToStars(), BuiltinRawField(), BuiltinRawList(),
-    BuiltinRe(), BuiltinReGroup(), BuiltinSelect(), BuiltinSeriesSort(),
+    BuiltinRe(), BuiltinReGroup(), BuiltinRound(), BuiltinSelect(), BuiltinSeriesSort(),
     BuiltinShorten(), BuiltinStrcat(), BuiltinStrcatMax(),
     BuiltinStrcmp(), BuiltinStrInList(), BuiltinStrlen(), BuiltinSubitems(),
-    BuiltinSublist(),BuiltinSubstr(), BuiltinSubtract(), BuiltinSwapAroundComma(),
-    BuiltinSwitch(), BuiltinTemplate(), BuiltinTest(), BuiltinTitlecase(),
+    BuiltinSublist(),BuiltinSubstr(), BuiltinSubtract(), BuiltinSwapAroundArticles(),
+    BuiltinSwapAroundComma(), BuiltinSwitch(),
+    BuiltinTemplate(), BuiltinTest(), BuiltinTitlecase(),
     BuiltinToday(), BuiltinTransliterate(), BuiltinUppercase(),
     BuiltinUserCategories(), BuiltinVirtualLibraries()
 ]

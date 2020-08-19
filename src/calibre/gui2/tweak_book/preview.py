@@ -3,6 +3,7 @@
 # License: GPLv3 Copyright: 2015, Kovid Goyal <kovid at kovidgoyal.net>
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import json
 import textwrap
 import time
 from collections import defaultdict
@@ -10,8 +11,8 @@ from functools import partial
 from threading import Thread
 
 from PyQt5.Qt import (
-    QApplication, QByteArray, QHBoxLayout, QIcon, QMenu, QSize, QTimer, QToolBar,
-    QUrl, QVBoxLayout, QWidget, pyqtSignal
+    QApplication, QByteArray, QHBoxLayout, QIcon, QLabel, QMenu, QSize, QSizePolicy,
+    QStackedLayout, Qt, QTimer, QToolBar, QUrl, QVBoxLayout, QWidget, pyqtSignal
 )
 from PyQt5.QtWebEngineCore import QWebEngineUrlSchemeHandler
 from PyQt5.QtWebEngineWidgets import (
@@ -24,7 +25,8 @@ from calibre.constants import (
 )
 from calibre.ebooks.oeb.base import OEB_DOCS, XHTML_MIME, serialize
 from calibre.ebooks.oeb.polish.parsing import parse
-from calibre.gui2 import NO_URL_FORMATTING, error_dialog, open_url
+from calibre.gui2 import NO_URL_FORMATTING, error_dialog, is_dark_theme, open_url
+from calibre.gui2.palette import dark_color, dark_link_color, dark_text_color
 from calibre.gui2.tweak_book import TOP, actions, current_container, editors, tprefs
 from calibre.gui2.tweak_book.file_list import OpenWithHandler
 from calibre.gui2.viewer.web_view import handle_mathjax_request, send_reply
@@ -243,10 +245,42 @@ def create_profile():
             compile_editor()
         js = P('editor.js', data=True, allow_user_override=False)
         cparser = P('csscolorparser.js', data=True, allow_user_override=False)
+        dark_mode_css = P('dark_mode.css', data=True, allow_user_override=False).decode('utf-8')
 
         insert_scripts(ans,
             create_script('csscolorparser.js', cparser),
             create_script('editor.js', js),
+            create_script('dark-mode.js', '''
+            (function() {
+                var settings = JSON.parse(navigator.userAgent.split('|')[1]);
+                var dark_css = CSS;
+
+                function apply_body_colors(event) {
+                    if (document.documentElement) {
+                        if (settings.bg) document.documentElement.style.backgroundColor = settings.bg;
+                        if (settings.fg) document.documentElement.style.color = settings.fg;
+                    }
+                    if (document.body) {
+                        if (settings.bg) document.body.style.backgroundColor = settings.bg;
+                        if (settings.fg) document.body.style.color = settings.fg;
+                    }
+                }
+
+                function apply_css() {
+                    var css = '';
+                    if (settings.link) css += 'html > body :link, html > body :link * { color: ' + settings.link + ' !important; }';
+                    if (settings.is_dark_theme) { css += dark_css; }
+                    var style = document.createElement('style');
+                    style.textContent = css;
+                    document.documentElement.appendChild(style);
+                    apply_body_colors();
+                }
+
+                apply_body_colors();
+                document.addEventListener("DOMContentLoaded", apply_css);
+            })();
+            '''.replace('CSS', json.dumps(dark_mode_css), 1),
+            injection_point=QWebEngineScript.DocumentCreation)
         )
         url_handler = UrlSchemeHandler(ans)
         ans.installUrlSchemeHandler(QByteArray(FAKE_PROTOCOL.encode('ascii')), url_handler)
@@ -363,10 +397,37 @@ class WebView(RestartingWebEngineView, OpenWithHandler):
     def sizeHint(self):
         return self._size_hint
 
+    def update_settings(self):
+        dark = is_dark_theme()
+
+        def get_color(name, dark_val):
+            ans = tprefs[name]
+            if ans == 'auto' and dark:
+                ans = dark_val.name()
+            if ans in ('auto', 'unset'):
+                return None
+            return ans
+
+        settings = {
+            'is_dark_theme': dark,
+            'bg': get_color('preview_background', dark_color),
+            'fg': get_color('preview_foreground', dark_text_color),
+            'link': get_color('preview_link_color', dark_link_color),
+        }
+        p = self._page.profile()
+        ua = p.httpUserAgent().split('|')[0] + '|' + json.dumps(settings)
+        p.setHttpUserAgent(ua)
+
     def refresh(self):
+        self.update_settings()
         self.pageAction(QWebEnginePage.ReloadAndBypassCache).trigger()
 
+    def set_url(self, qurl):
+        self.update_settings()
+        RestartingWebEngineView.setUrl(self, qurl)
+
     def clear(self):
+        self.update_settings()
         self.setHtml(_(
             '''
             <h3>Live preview</h3>
@@ -438,15 +499,27 @@ class Preview(QWidget):
         self.l = l = QVBoxLayout()
         self.setLayout(l)
         l.setContentsMargins(0, 0, 0, 0)
+        self.stack = QStackedLayout(l)
+        self.stack.setStackingMode(self.stack.StackAll)
+        self.current_sync_retry_count = 0
         self.view = WebView(self)
         self.view._page.bridge.request_sync.connect(self.request_sync)
         self.view._page.bridge.request_split.connect(self.request_split)
         self.view._page.bridge.live_css_data.connect(self.live_css_data)
+        self.view._page.bridge.bridge_ready.connect(self.on_bridge_ready)
         self.view._page.loadFinished.connect(self.load_finished)
+        self.view._page.loadStarted.connect(self.load_started)
         self.view.render_process_restarted.connect(self.render_process_restarted)
         self.pending_go_to_anchor = None
         self.inspector = self.view.inspector
-        l.addWidget(self.view)
+        self.stack.addWidget(self.view)
+        self.cover = c = QLabel(_('Loading preview, please wait...'))
+        c.setWordWrap(True)
+        c.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        c.setStyleSheet('QLabel { background-color: palette(window); }')
+        c.setAlignment(Qt.AlignCenter)
+        self.stack.addWidget(self.cover)
+        self.stack.setCurrentIndex(self.stack.indexOf(self.cover))
         self.bar = QToolBar(self)
         l.addWidget(self.bar)
 
@@ -533,20 +606,24 @@ class Preview(QWidget):
         if self.current_name:
             self.split_requested.emit(self.current_name, loc, totals)
 
+    @property
+    def bridge_ready(self):
+        return self.view._page.bridge.ready
+
     def sync_to_editor(self, name, sourceline_address):
         self.current_sync_request = (name, sourceline_address)
+        self.current_sync_retry_count = 0
         QTimer.singleShot(100, self._sync_to_editor)
 
     def _sync_to_editor(self):
-        if not actions['sync-preview-to-editor'].isChecked():
+        if not actions['sync-preview-to-editor'].isChecked() or self.current_sync_retry_count >= 3000 or self.current_sync_request is None:
             return
-        try:
-            if self.refresh_timer.isActive() or self.current_sync_request[0] != self.current_name:
-                return QTimer.singleShot(100, self._sync_to_editor)
-        except TypeError:
-            return  # Happens if current_sync_request is None
+        if self.refresh_timer.isActive() or not self.bridge_ready or self.current_sync_request[0] != self.current_name:
+            self.current_sync_retry_count += 1
+            return QTimer.singleShot(100, self._sync_to_editor)
         sourceline_address = self.current_sync_request[1]
         self.current_sync_request = None
+        self.current_sync_retry_count = 0
         self.view._page.go_to_sourceline_address(sourceline_address)
 
     def report_worker_launch_error(self):
@@ -567,7 +644,7 @@ class Preview(QWidget):
             self.current_name = name
             self.report_worker_launch_error()
             parse_worker.add_request(name)
-            self.view.setUrl(self.name_to_qurl())
+            self.view.set_url(self.name_to_qurl())
             return True
 
     def refresh(self):
@@ -582,7 +659,7 @@ class Preview(QWidget):
             self.refresh_starting.emit()
             if current_url != self.view.url():
                 # The container was changed
-                self.view.setUrl(current_url)
+                self.view.set_url(current_url)
             else:
                 self.view.refresh()
             self.refreshed.emit()
@@ -644,7 +721,14 @@ class Preview(QWidget):
     def stop_split(self):
         actions['split-in-preview'].setChecked(False)
 
+    def load_started(self):
+        self.stack.setCurrentIndex(self.stack.indexOf(self.cover))
+
+    def on_bridge_ready(self):
+        self.stack.setCurrentIndex(self.stack.indexOf(self.view))
+
     def load_finished(self, ok):
+        self.stack.setCurrentIndex(self.stack.indexOf(self.view))
         if self.pending_go_to_anchor:
             self.view._page.go_to_anchor(self.pending_go_to_anchor)
             self.pending_go_to_anchor = None

@@ -40,7 +40,6 @@ def sphinx_build(language, base, builder='html', bdir='html', t=None, quiet=True
 
 def build_manual(language, base):
     sb = partial(sphinx_build, language, base)
-    skip_pdf = language == 'tr'
     onlinedir = sb(t='online')
     epubdir = sb('myepub', 'epub')
     latexdir = sb('mylatex', 'latex')
@@ -52,28 +51,26 @@ def build_manual(language, base):
         p.stdin.close()
         return p.wait()
     try:
-        if not skip_pdf:
-            for i in range(3):
-                run_cmd(['pdflatex', '-interaction=nonstopmode', 'calibre.tex'])
-            run_cmd(['makeindex', '-s', 'python.ist', 'calibre.idx'])
-            for i in range(2):
-                run_cmd(['pdflatex', '-interaction=nonstopmode', 'calibre.tex'])
-            if not os.path.exists('calibre.pdf'):
-                print('Failed to build pdf file, see calibre.log in the latex directory', file=sys.stderr)
-                raise SystemExit(1)
+        for i in range(3):
+            run_cmd(['xelatex', '-interaction=nonstopmode', 'calibre.tex'])
+        run_cmd(['makeindex', '-s', 'python.ist', 'calibre.idx'])
+        for i in range(2):
+            run_cmd(['xelatex', '-interaction=nonstopmode', 'calibre.tex'])
+        if not os.path.exists('calibre.pdf'):
+            print('Failed to build pdf file, see calibre.log in the latex directory', file=sys.stderr)
+            raise SystemExit(1)
     finally:
         os.chdir(pwd)
     epub_dest = j(onlinedir, 'calibre.epub')
     pdf_dest = j(onlinedir, 'calibre.pdf')
     shutil.copyfile(j(epubdir, 'calibre.epub'), epub_dest)
-    if not skip_pdf:
-        shutil.copyfile(j(latexdir, 'calibre.pdf'), pdf_dest)
+    shutil.copyfile(j(latexdir, 'calibre.pdf'), pdf_dest)
     epub_to_azw3(epub_dest)
 
 
 def build_pot(base):
     cmd = [SPHINX_BUILD, '-b', 'gettext', '-t', 'online', '-t', 'gettext', '.', base]
-    print (' '.join(cmd))
+    print(' '.join(cmd))
     subprocess.check_call(cmd)
     os.remove(j(base, 'generated.pot'))
     return base
@@ -81,7 +78,7 @@ def build_pot(base):
 
 def build_linkcheck(base):
     cmd = [SPHINX_BUILD, '-b', 'linkcheck', '-t', 'online', '-t', 'linkcheck', '.', base]
-    print (' '.join(cmd))
+    print(' '.join(cmd))
     subprocess.check_call(cmd)
     return base
 
@@ -103,7 +100,7 @@ if __name__ == '__main__':
             import json
             os.environ['ALL_USER_MANUAL_LANGUAGES'] = ' '.join(json.load(open('locale/completed.json', 'rb')))
         sphinx_build(language, base, t='online', quiet=False)
-        print ('Manual built in', j(base, 'html'))
+        print('Manual built in', j(base, 'html'))
     else:
         p = argparse.ArgumentParser()
         p.add_argument('language', help='The language to build for')
@@ -122,4 +119,4 @@ if __name__ == '__main__':
         else:
             os.environ['CALIBRE_OVERRIDE_LANG'] = language
             build_manual(language, base)
-            print ('Manual for', language, 'built in', j(base, 'html'))
+            print('Manual for', language, 'built in', j(base, 'html'))
