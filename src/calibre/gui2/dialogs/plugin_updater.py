@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2011, Grant Drake <grant.drake@gmail.com>'
@@ -15,7 +15,7 @@ from PyQt5.Qt import (Qt, QUrl, QFrame, QVBoxLayout, QLabel, QBrush, QTextEdit,
                       QFont, QPixmap, QSize, QLineEdit)
 
 from calibre import browser, prints
-from calibre.constants import numeric_version, iswindows, isosx, DEBUG, __appname__, __version__
+from calibre.constants import numeric_version, iswindows, ismacos, DEBUG, __appname__, __version__
 from calibre.customize.ui import (
     initialized_plugins, is_disabled, remove_plugin, add_plugin, enable_plugin, disable_plugin,
     NameConflict, has_external_plugins)
@@ -224,12 +224,14 @@ class DisplayPlugin(object):
         return filter_text in icu_lower(self.name)  # case-insensitive filtering
 
     def is_upgrade_available(self):
+        if isinstance(self.installed_version, str):
+            return True
         return self.is_installed() and (self.installed_version < self.available_version or self.is_deprecated)
 
     def is_valid_platform(self):
         if iswindows:
             return 'windows' in self.platforms
-        if isosx:
+        if ismacos:
             return 'osx' in self.platforms
         return 'linux' in self.platforms
 
@@ -414,7 +416,11 @@ class DisplayPluginModel(QAbstractTableModel):
         if display_plugin.installed_version is None:
             return (_('You can install this plugin')+'\n\n'+
                             _('Right-click to see more options'))
-        if display_plugin.installed_version < display_plugin.available_version:
+        try:
+            if display_plugin.installed_version < display_plugin.available_version:
+                return (_('A new version of this plugin is available')+'\n\n'+
+                                _('Right-click to see more options'))
+        except Exception:
             return (_('A new version of this plugin is available')+'\n\n'+
                             _('Right-click to see more options'))
         return (_('This plugin is installed and up-to-date')+'\n\n'+

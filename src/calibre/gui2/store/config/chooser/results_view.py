@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 __license__ = 'GPL 3'
@@ -47,7 +46,7 @@ class ResultsView(QTreeView):
 
         plugin = self.model().get_plugin(index)
 
-        menu = QMenu()
+        menu = QMenu(self)
         ca = menu.addAction(_('Configure...'), partial(self.configure_plugin, plugin))
         if not plugin.is_customizable():
             ca.setEnabled(False)

@@ -2,8 +2,6 @@
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
-from __future__ import print_function
-
 import errno
 import glob
 import os
@@ -17,6 +15,7 @@ from functools import partial
 from bypy.constants import (
     OUTPUT_DIR, PREFIX, SRC as CALIBRE_DIR, is64bit, python_major_minor_version
 )
+from bypy.freeze import extract_extension_modules, freeze_python, path_to_freeze_dir
 from bypy.utils import (
     create_job, get_dll_path, mkdtemp, parallel_build, py_compile, run, walk
 )
@@ -40,13 +39,13 @@ def binary_includes():
         j(PREFIX, 'private', 'mozjpeg', 'bin', x) for x in ('jpegtran', 'cjpeg')] + [
         ] + list(map(
             get_dll_path,
-            ('usb-1.0 mtp expat sqlite3 ffi z openjp2 poppler dbus-1 iconv xml2 xslt jpeg png16'
+            ('usb-1.0 mtp expat sqlite3 ffi z lzma openjp2 poppler dbus-1 iconv xml2 xslt jpeg png16'
              ' webp webpmux webpdemux exslt ncursesw readline chm hunspell-1.7 hyphen'
              ' icudata icui18n icuuc icuio gcrypt gpg-error'
              ' gobject-2.0 glib-2.0 gthread-2.0 gmodule-2.0 gio-2.0 dbus-glib-1').split()
         )) + [
             get_dll_path('podofo', 3), get_dll_path('bz2', 2), j(PREFIX, 'lib', 'libunrar.so'),
-            get_dll_path('ssl', 3), get_dll_path('crypto', 3), get_dll_path('python' + py_ver, 2),
+            get_dll_path('ssl', 2), get_dll_path('crypto', 2), get_dll_path('python' + py_ver, 2),
             # We dont include libstdc++.so as the OpenGL dlls on the target
             # computer fail to load in the QPA xcb plugin if they were compiled
             # with a newer version of gcc than the one on the build computer.
@@ -96,7 +95,7 @@ def import_site_packages(srcdir, dest):
         if ext in ('py', 'so'):
             shutil.copy2(f, dest)
         elif ext == 'pth' and x != 'setuptools.pth':
-            for line in open(f, 'rb').read().splitlines():
+            for line in open(f, 'rb').read().decode('utf-8').splitlines():
                 src = os.path.abspath(j(srcdir, line))
                 if os.path.exists(src) and os.path.isdir(src):
                     import_site_packages(src, dest)
@@ -133,7 +132,7 @@ def copy_python(env, ext_dir):
         y = j(srcdir, x)
         ext = os.path.splitext(x)[1]
         if os.path.isdir(y) and x not in ('test', 'hotshot',
-                                          'site-packages', 'idlelib', 'lib2to3', 'dist-packages'):
+                                          'site-packages', 'idlelib', 'dist-packages'):
             shutil.copytree(y, j(env.py_dir, x), ignore=ignore_in_lib)
         if os.path.isfile(y) and ext in ('.py', '.so'):
             shutil.copy2(y, env.py_dir)
@@ -141,13 +140,6 @@ def copy_python(env, ext_dir):
     srcdir = j(srcdir, 'site-packages')
     dest = j(env.py_dir, 'site-packages')
     import_site_packages(srcdir, dest)
-    shutil.rmtree(j(dest, 'PyQt5/uic/port_v3'))
-
-    filter_pyqt = {x + '.so' for x in PYQT_MODULES} | {'sip.so'}
-    pyqt = j(dest, 'PyQt5')
-    for x in os.listdir(pyqt):
-        if x.endswith('.so') and x not in filter_pyqt:
-            os.remove(j(pyqt, x))
 
     for x in os.listdir(env.SRC):
         c = j(env.SRC, x)
@@ -155,12 +147,6 @@ def copy_python(env, ext_dir):
             shutil.copytree(c, j(dest, x), ignore=partial(ignore_in_lib, ignored_dirs={}))
         elif os.path.isfile(c):
             shutil.copy2(c, j(dest, x))
-    pdir = j(dest, 'calibre', 'plugins')
-    if not os.path.exists(pdir):
-        os.mkdir(pdir)
-    for x in glob.glob(j(ext_dir, '*.so')):
-        shutil.copy2(x, j(pdir, os.path.basename(x)))
-
     shutil.copytree(j(env.src_root, 'resources'), j(env.base, 'resources'))
     for pak in glob.glob(j(QT_PREFIX, 'resources', '*.pak')):
         shutil.copy2(pak, j(env.base, 'resources'))
@@ -169,15 +155,29 @@ def copy_python(env, ext_dir):
     sitepy = j(self_dir, 'site.py')
     shutil.copy2(sitepy, j(env.py_dir, 'site.py'))
 
+    pdir = j(env.lib_dir, 'calibre-extensions')
+    if not os.path.exists(pdir):
+        os.mkdir(pdir)
+    for x in os.listdir(j(env.py_dir, 'site-packages')):
+        os.rename(j(env.py_dir, 'site-packages', x), j(env.py_dir, x))
+    os.rmdir(j(env.py_dir, 'site-packages'))
+    print('Extracting extension modules from', ext_dir, 'to', pdir)
+    ext_map = extract_extension_modules(ext_dir, pdir)
+    shutil.rmtree(j(env.py_dir, 'calibre', 'plugins'))
+    print('Extracting extension modules from', env.py_dir, 'to', pdir)
+    ext_map.update(extract_extension_modules(env.py_dir, pdir))
     py_compile(env.py_dir)
+    freeze_python(env.py_dir, pdir, env.obj_dir, ext_map, develop_mode_env_var='CALIBRE_DEVELOP_FROM')
+    shutil.rmtree(env.py_dir)
 
 
 def build_launchers(env):
     base = self_dir
     sources = [j(base, x) for x in ['util.c']]
     objects = [j(env.obj_dir, os.path.basename(x) + '.o') for x in sources]
-    cflags = '-fno-strict-aliasing -W -Wall -c -O2 -pipe -DPYTHON_VER="python%s"' % py_ver
+    cflags = '-fno-strict-aliasing -W -Wall -c -O2 -pipe -DPY_VERSION_MAJOR={} -DPY_VERSION_MINOR={}'.format(*py_ver.split('.'))
     cflags = cflags.split() + ['-I%s/include/python%s' % (PREFIX, py_ver)]
+    cflags += [f'-I{path_to_freeze_dir()}', f'-I{env.obj_dir}']
     for src, obj in zip(sources, objects):
         cmd = ['gcc'] + cflags + ['-fPIC', '-o', obj, src]
         run(*cmd)
@@ -204,8 +204,8 @@ def build_launchers(env):
             xflags = list(cflags)
             xflags.remove('-c')
             xflags += ['-DGUI_APP=' + ('1' if typ == 'gui' else '0')]
-            xflags += ['-DMODULE="%s"' % mod, '-DBASENAME="%s"' % bname,
-                       '-DFUNCTION="%s"' % func]
+            xflags += ['-DMODULE=L"%s"' % mod, '-DBASENAME=L"%s"' % bname,
+                       '-DFUNCTION=L"%s"' % func]
 
             exe = j(env.bin_dir, bname)
             cmd = ['gcc'] + xflags + [src, '-o', exe, '-L' + env.lib_dir, '-lcalibre-launcher']

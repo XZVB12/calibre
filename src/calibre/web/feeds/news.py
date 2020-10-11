@@ -1,4 +1,4 @@
-from __future__ import with_statement, unicode_literals
+
 __license__   = 'GPL v3'
 __copyright__ = '2008, Kovid Goyal <kovid at kovidgoyal.net>'
 '''
@@ -37,6 +37,19 @@ def classes(classes):
     q = frozenset(classes.split(' '))
     return dict(attrs={
         'class': lambda x: x and frozenset(x.split()).intersection(q)})
+
+
+def prefixed_classes(classes):
+    q = frozenset(classes.split(' '))
+
+    def matcher(x):
+        if x:
+            for candidate in frozenset(x.split()):
+                for x in q:
+                    if candidate.startswith(x):
+                        return True
+        return False
+    return {'attrs': {'class': matcher}}
 
 
 class LoginFailed(ValueError):
@@ -1522,10 +1535,19 @@ class BasicNewsRecipe(Recipe):
                     arelpath = '%sindex.html'%adir
                     for curl in self.canonicalize_internal_url(a.orig_url, is_link=False):
                         aumap[curl].add(arelpath)
-                    parent.add_item(arelpath, None,
+                    article_toc_entry = parent.add_item(arelpath, None,
                             a.title if a.title else _('Untitled article'),
                             play_order=po, author=auth,
                             description=desc, toc_thumbnail=tt)
+                    for entry in a.internal_toc_entries:
+                        anchor = entry.get('anchor')
+                        if anchor:
+                            self.play_order_counter += 1
+                            po += 1
+                            article_toc_entry.add_item(
+                                arelpath, entry['anchor'], entry['title'] or _('Unknown section'),
+                                play_order=po
+                            )
                     last = os.path.join(self.output_dir, ('%sindex.html'%adir).replace('/', os.sep))
                     for sp in a.sub_pages:
                         prefix = os.path.commonprefix([opf_path, sp])
@@ -1627,6 +1649,10 @@ class BasicNewsRecipe(Recipe):
                 title, url = None, obj
             else:
                 title, url = obj
+            if isinstance(title, bytes):
+                title = title.decode('utf-8')
+            if isinstance(url, bytes):
+                url = url.decode('utf-8')
             if url.startswith('feed://'):
                 url = 'http'+url[4:]
             self.report_progress(0, _('Fetching feed')+' %s...'%(title if title else url))

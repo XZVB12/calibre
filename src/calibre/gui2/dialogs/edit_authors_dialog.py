@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python
+
 
 __copyright__ = '2008, Kovid Goyal kovid@kovidgoyal.net'
 __docformat__ = 'restructuredtext en'
@@ -305,7 +305,7 @@ class EditAuthorsDialog(QDialog, Ui_EditAuthorsDialog):
         action_title_case.triggered.connect(self.title_case)
         action_capitalize.triggered.connect(self.capitalize)
 
-        m = self.au_context_menu = QMenu()
+        m = self.au_context_menu = QMenu(self)
         idx = self.table.indexAt(point)
         id_ = int(self.table.item(idx.row(), 0).data(Qt.UserRole))
         sub = self.get_column_name(idx.column())

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (C) 2006-2010 Søren Roug, European Environment Agency
 #
@@ -20,7 +20,7 @@
 #
 # import pdb
 # pdb.set_trace()
-from __future__ import print_function, unicode_literals, absolute_import, division
+
 from collections import defaultdict
 from xml.sax import handler
 from xml.sax.saxutils import escape, quoteattr
@@ -927,9 +927,9 @@ dl.notes dd:last-of-type { page-break-after: avoid }
 #           self.closetag('sup', False)
             self.writeout('[')
             self.opentag('a', {'href': "#citation-%d" % key})
-            self.writeout(u"\u2190%d".encode('utf-8') % key)
+            self.writeout("←%d" % key)
             self.closetag('a')
-            self.writeout(u']\xa0'.encode('utf-8'))
+            self.writeout(']\xa0')
             self.closetag('dt')
             self.opentag('dd')
             self.writeout(note['body'])
@@ -1604,7 +1604,7 @@ dl.notes dd:last-of-type { page-break-after: avoid }
         return self.xhtml()
 
     def _wlines(self,s):
-        if s != '':
+        if s:
             self.lines.append(s)
 
     def xhtml(self):
@@ -1613,7 +1613,7 @@ dl.notes dd:last-of-type { page-break-after: avoid }
         return ''.join(self.lines)
 
     def _writecss(self, s):
-        if s != '':
+        if s:
             self._csslines.append(s)
 
     def _writenothing(self, s):

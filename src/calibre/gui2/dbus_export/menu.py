@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__ = 'GPL v3'
 __copyright__ = '2014, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -62,7 +62,7 @@ def create_properties_for_action(ac, previous=None):
             data = icon_to_dbus_menu_icon(ac.icon())
             if data is not None:
                 ans['icon-data'] = data
-                ans['x-qt-icon-cache-key'] = icon.cacheKey()
+                ans['x-qt-icon-cache-key'] = dbus.UInt64(icon.cacheKey())
     return ans
 
 

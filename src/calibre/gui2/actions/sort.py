@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__ = 'GPL v3'
 __copyright__ = '2013, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -37,6 +37,21 @@ class SortByAction(InterfaceAction):
     def genesis(self):
         self.sorted_icon = QIcon(I('ok.png'))
         self.qaction.menu().aboutToShow.connect(self.about_to_show)
+
+        def c(attr, title, tooltip, callback, keys=()):
+            ac = self.create_action(spec=(title, None, tooltip, keys), attr=attr)
+            ac.triggered.connect(callback)
+            self.gui.addAction(ac)
+            return ac
+
+        c('reverse_sort_action', _('Reverse current sort'), _('Reverse the current sort order'), self.reverse_sort, 'shift+f5')
+        c('reapply_sort_action', _('Re-apply current sort'), _('Re-apply the current sort'), self.reapply_sort, 'f5')
+
+    def reverse_sort(self):
+        self.gui.current_view().reverse_sort()
+
+    def reapply_sort(self):
+        self.gui.current_view().resort()
 
     def location_selected(self, loc):
         enabled = loc == 'library'

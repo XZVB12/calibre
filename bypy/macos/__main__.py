@@ -2,8 +2,6 @@
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import errno
 import glob
 import json
@@ -24,6 +22,7 @@ from itertools import repeat
 from bypy.constants import (
     OUTPUT_DIR, PREFIX, PYTHON, SRC as CALIBRE_DIR, python_major_minor_version
 )
+from bypy.freeze import extract_extension_modules, freeze_python, path_to_freeze_dir
 from bypy.utils import current_dir, mkdtemp, py_compile, timeit, walk
 
 abspath, join, basename, dirname = os.path.abspath, os.path.join, os.path.basename, os.path.dirname
@@ -39,20 +38,26 @@ QT_FRAMEWORKS = [x.replace('5', '') for x in QT_DLLS]
 ENV = dict(
     FONTCONFIG_PATH='@executable_path/../Resources/fonts',
     FONTCONFIG_FILE='@executable_path/../Resources/fonts/fonts.conf',
-    PYTHONIOENCODING='UTF-8',
     SSL_CERT_FILE='@executable_path/../Resources/resources/mozilla-ca-certs.pem',
 )
 APPNAME, VERSION = calibre_constants['appname'], calibre_constants['version']
 basenames, main_modules, main_functions = calibre_constants['basenames'], calibre_constants['modules'], calibre_constants['functions']
 
 
-def compile_launcher_lib(contents_dir, gcc, base):
+def compile_launcher_lib(contents_dir, gcc, base, pyver, inc_dir):
     print('\tCompiling calibre_launcher.dylib')
-    fd = join(contents_dir, 'Frameworks')
-    dest = join(fd, 'calibre-launcher.dylib')
+    env, env_vals = [], []
+    for key, val in ENV.items():
+        env.append(f'"{key}"'), env_vals.append(f'"{val}"')
+    env = ','.join(env)
+    env_vals = ','.join(env_vals)
+
+    dest = join(contents_dir, 'Frameworks', 'calibre-launcher.dylib')
     src = join(base, 'util.c')
     cmd = [gcc] + '-Wall -dynamiclib -std=gnu99'.split() + [src] + \
-        ['-I' + base] + \
+        ['-I' + base] + '-DPY_VERSION_MAJOR={} -DPY_VERSION_MINOR={}'.format(*pyver.split('.')).split() + \
+        [f'-I{path_to_freeze_dir()}', f'-I{inc_dir}'] + \
+        [f'-DENV_VARS={env}', f'-DENV_VAR_VALS={env_vals}'] + \
         ['-I%s/python/Python.framework/Versions/Current/Headers' % PREFIX] + \
         '-current_version 1.0 -compatibility_version 1.0'.split() + \
         '-fvisibility=hidden -o'.split() + [dest] + \
@@ -68,35 +73,21 @@ def compile_launcher_lib(contents_dir, gcc, base):
 gcc = os.environ.get('CC', 'clang')
 
 
-def compile_launchers(contents_dir, xprograms, pyver):
+def compile_launchers(contents_dir, inc_dir, xprograms, pyver):
     base = dirname(abspath(__file__))
-    lib = compile_launcher_lib(contents_dir, gcc, base)
-    with open(join(base, 'launcher.c'), 'rb') as f:
-        src = f.read().decode('utf-8')
-    env, env_vals = [], []
-    for key, val in ENV.items():
-        env.append('"%s"' % key)
-        env_vals.append('"%s"' % val)
-    env = ', '.join(env) + ', '
-    env_vals = ', '.join(env_vals) + ', '
-    src = src.replace('/*ENV_VARS*/', env)
-    src = src.replace('/*ENV_VAR_VALS*/', env_vals)
+    lib = compile_launcher_lib(contents_dir, gcc, base, pyver, inc_dir)
+    src = join(base, 'launcher.c')
     programs = [lib]
     for program, x in xprograms.items():
         module, func, ptype = x
         print('\tCompiling', program)
         out = join(contents_dir, 'MacOS', program)
         programs.append(out)
-        psrc = src.replace('**PROGRAM**', program)
-        psrc = psrc.replace('**MODULE**', module)
-        psrc = psrc.replace('**FUNCTION**', func)
-        psrc = psrc.replace('**PYVER**', pyver)
-        psrc = psrc.replace('**IS_GUI**', ('1' if ptype == 'gui' else '0'))
-        fsrc = '/tmp/%s.c' % program
-        with open(fsrc, 'wb') as f:
-            f.write(psrc.encode('utf-8'))
-        cmd = [gcc, '-Wall', '-I' + base, fsrc, lib, '-o', out,
-               '-headerpad_max_install_names']
+        is_gui = 'true' if ptype == 'gui' else 'false'
+        cmd = [
+            gcc, '-Wall', f'-DPROGRAM=L"{program}"', f'-DMODULE=L"{module}"', f'-DFUNCTION=L"{func}"', f'-DIS_GUI={is_gui}',
+            '-I' + base, src, lib, '-o', out, '-headerpad_max_install_names'
+        ]
         # print('\t'+' '.join(cmd))
         sys.stdout.flush()
         subprocess.check_call(cmd)
@@ -157,8 +148,9 @@ class Freeze(object):
 
     FID = '@executable_path/../Frameworks'
 
-    def __init__(self, build_dir, ext_dir, test_runner, test_launchers=False, dont_strip=False, sign_installers=False, notarize=False):
+    def __init__(self, build_dir, ext_dir, inc_dir, test_runner, test_launchers=False, dont_strip=False, sign_installers=False, notarize=False):
         self.build_dir = os.path.realpath(build_dir)
+        self.inc_dir = os.path.realpath(inc_dir)
         self.sign_installers = sign_installers
         self.notarize = notarize
         self.ext_dir = os.path.realpath(ext_dir)
@@ -177,6 +169,7 @@ class Freeze(object):
 
     def run(self, test_launchers):
         ret = 0
+        self.ext_map = {}
         if not test_launchers:
             if os.path.exists(self.build_dir):
                 shutil.rmtree(self.build_dir)
@@ -196,9 +189,9 @@ class Freeze(object):
             self.add_misc_libraries()
 
             self.add_resources()
+            self.copy_site()
             self.compile_py_modules()
 
-        self.copy_site()
         self.create_exe()
         if not test_launchers and not self.dont_strip:
             self.strip_files()
@@ -233,7 +226,7 @@ class Freeze(object):
             progs += list(zip(basenames[x], main_modules[x], main_functions[x], repeat(x)))
         for program, module, func, ptype in progs:
             programs[program] = (module, func, ptype)
-        programs = compile_launchers(self.contents_dir, programs, py_ver)
+        programs = compile_launchers(self.contents_dir, self.inc_dir, programs, py_ver)
         for out in programs:
             self.fix_dependencies_in_lib(out)
 
@@ -260,6 +253,8 @@ class Freeze(object):
         for x, is_id in self.get_dependencies(path_to_lib):
             if x.startswith('@rpath/Qt'):
                 yield x, x[len('@rpath/'):], is_id
+            elif x == 'libunrar.dylib' and not is_id:
+                yield x, x, is_id
             else:
                 for y in (PREFIX + '/lib/', PREFIX + '/python/Python.framework/'):
                     if x.startswith(y):
@@ -392,15 +387,16 @@ class Freeze(object):
     def add_calibre_plugins(self):
         dest = join(self.frameworks_dir, 'plugins')
         os.mkdir(dest)
-        plugins = glob.glob(self.ext_dir + '/*.so')
+        print('Extracting extension modules from:', self.ext_dir, 'to', dest)
+        self.ext_map = extract_extension_modules(self.ext_dir, dest)
+        plugins = glob.glob(dest + '/*.so')
         if not plugins:
             raise SystemExit('No calibre plugins found in: ' + self.ext_dir)
         for f in plugins:
-            shutil.copy2(f, dest)
-            self.fix_dependencies_in_lib(join(dest, basename(f)))
+            self.fix_dependencies_in_lib(f)
             if f.endswith('/podofo.so'):
                 self.change_dep('libpodofo.0.9.6.dylib',
-                    '@executable_path/../Frameworks/libpodofo.0.9.6.dylib', False, join(dest, basename(f)))
+                    '@executable_path/../Frameworks/libpodofo.0.9.6.dylib', False, f)
 
     @flush
     def create_plist(self):
@@ -458,7 +454,7 @@ class Freeze(object):
     @flush
     def add_poppler(self):
         print('\nAdding poppler')
-        for x in ('libopenjp2.7.dylib', 'libpoppler.87.dylib',):
+        for x in ('libopenjp2.7.dylib', 'libpoppler.102.dylib',):
             self.install_dylib(join(PREFIX, 'lib', x))
         for x in ('pdftohtml', 'pdftoppm', 'pdfinfo'):
             self.install_dylib(
@@ -502,10 +498,10 @@ class Freeze(object):
     @flush
     def add_misc_libraries(self):
         for x in (
-                'usb-1.0.0', 'mtp.9', 'chm.0', 'sqlite3.0', 'hunspell-1.7.0',
-                'icudata.64', 'icui18n.64', 'icuio.64', 'icuuc.64', 'hyphen.0',
-                'xslt.1', 'exslt.0', 'xml2.2', 'z.1', 'unrar',
-                'crypto.1.0.0', 'ssl.1.0.0', 'iconv.2',  # 'ltdl.7'
+            'usb-1.0.0', 'mtp.9', 'chm.0', 'sqlite3.0', 'hunspell-1.7.0',
+            'icudata.67', 'icui18n.67', 'icuio.67', 'icuuc.67', 'hyphen.0',
+            'xslt.1', 'exslt.0', 'xml2.2', 'z.1', 'unrar', 'lzma.5',
+            'crypto.1.1', 'ssl.1.1', 'iconv.2',  # 'ltdl.7'
         ):
             print('\nAdding', x)
             x = 'lib%s.dylib' % x
@@ -547,10 +543,6 @@ class Freeze(object):
             if err.errno != errno.ENOENT:
                 raise
         sp = join(self.resources_dir, 'Python', 'site-packages')
-        for x in os.listdir(join(sp, 'PyQt5')):
-            if x.endswith('.so') and x.rpartition('.')[0] not in PYQT_MODULES and x != 'sip.so':
-                os.remove(join(sp, 'PyQt5', x))
-        os.remove(join(sp, 'PyQt5', 'uic/port_v3/proxy_base.py'))
         self.remove_bytecode(sp)
 
     @flush
@@ -640,7 +632,21 @@ class Freeze(object):
     def compile_py_modules(self):
         print('\nCompiling Python modules')
         base = join(self.resources_dir, 'Python')
-        py_compile(base)
+        pydir = join(base, f'lib/python{py_ver}')
+        src = join(pydir, 'lib-dynload')
+        dest = join(self.frameworks_dir, 'plugins')
+        print('Extracting extension modules from:', src, 'to', dest)
+        self.ext_map.update(extract_extension_modules(src, dest))
+        os.rmdir(src)
+        src = join(base, 'site-packages')
+        print('Extracting extension modules from:', src, 'to', dest)
+        self.ext_map.update(extract_extension_modules(src, dest))
+        for x in os.listdir(src):
+            os.rename(join(src, x), join(pydir, x))
+        os.rmdir(src)
+        py_compile(pydir)
+        freeze_python(pydir, dest, self.inc_dir, self.ext_map, develop_mode_env_var='CALIBRE_DEVELOP_FROM')
+        shutil.rmtree(pydir)
 
     def create_app_clone(self, name, specialise_plist, remove_doc_types=False, base_dir=None):
         print('\nCreating ' + name)
@@ -770,9 +776,10 @@ class Freeze(object):
 
 def main(args, ext_dir, test_runner):
     build_dir = abspath(join(mkdtemp('frozen-'), APPNAME + '.app'))
+    inc_dir = abspath(mkdtemp('include'))
     if args.skip_tests:
         test_runner = lambda *a: None
-    Freeze(build_dir, ext_dir, test_runner, dont_strip=args.dont_strip, sign_installers=args.sign_installers, notarize=args.notarize)
+    Freeze(build_dir, ext_dir, inc_dir, test_runner, dont_strip=args.dont_strip, sign_installers=args.sign_installers, notarize=args.notarize)
 
 
 if __name__ == '__main__':

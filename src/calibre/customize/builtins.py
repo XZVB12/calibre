@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2008, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -829,12 +829,10 @@ from calibre.ebooks.metadata.sources.amazon import Amazon
 from calibre.ebooks.metadata.sources.edelweiss import Edelweiss
 from calibre.ebooks.metadata.sources.openlibrary import OpenLibrary
 from calibre.ebooks.metadata.sources.overdrive import OverDrive
-from calibre.ebooks.metadata.sources.douban import Douban
-from calibre.ebooks.metadata.sources.ozon import Ozon
 from calibre.ebooks.metadata.sources.google_images import GoogleImages
 from calibre.ebooks.metadata.sources.big_book_search import BigBookSearch
 
-plugins += [GoogleBooks, GoogleImages, Amazon, Edelweiss, OpenLibrary, OverDrive, Douban, Ozon, BigBookSearch]
+plugins += [GoogleBooks, GoogleImages, Amazon, Edelweiss, OpenLibrary, OverDrive, BigBookSearch]
 
 # }}}
 
@@ -869,6 +867,12 @@ class ActionPolish(InterfaceActionBase):
     name = 'Polish Books'
     actual_plugin = 'calibre.gui2.actions.polish:PolishAction'
     description = _('Fine tune your e-books')
+
+
+class ActionBrowseAnnotations(InterfaceActionBase):
+    name = 'Browse Annotations'
+    actual_plugin = 'calibre.gui2.actions.browse_annots:BrowseAnnotationsAction'
+    description = _('Browse highlights and bookmarks from all books in the library')
 
 
 class ActionEditToC(InterfaceActionBase):
@@ -929,6 +933,12 @@ class ActionTemplateTester(InterfaceActionBase):
     name = 'Template Tester'
     actual_plugin = 'calibre.gui2.actions.show_template_tester:ShowTemplateTesterAction'
     description = _('Show an editor for testing templates')
+
+
+class ActionTemplateFunctions(InterfaceActionBase):
+    name = 'Template Functions'
+    actual_plugin = 'calibre.gui2.actions.show_stored_templates:ShowTemplateFunctionsAction'
+    description = _('Show a dialog for creating and managing template functions and stored templates')
 
 
 class ActionSaveToDisk(InterfaceActionBase):
@@ -1095,7 +1105,7 @@ plugins += [ActionAdd, ActionFetchAnnotations, ActionGenerateCatalog,
         ActionCopyToLibrary, ActionTweakEpub, ActionUnpackBook, ActionNextMatch, ActionStore,
         ActionPluginUpdater, ActionPickRandom, ActionEditToC, ActionSortBy,
         ActionMarkBooks, ActionEmbed, ActionTemplateTester, ActionTagMapper, ActionAuthorMapper,
-        ActionVirtualLibrary]
+        ActionVirtualLibrary, ActionBrowseAnnotations, ActionTemplateFunctions]
 
 # }}}
 
@@ -1945,7 +1955,6 @@ if __name__ == '__main__':
     try:
         subprocess.check_call(['python', '-c', textwrap.dedent(
         '''
-        from __future__ import print_function
         import time, sys, init_calibre
         st = time.time()
         import calibre.customize.builtins

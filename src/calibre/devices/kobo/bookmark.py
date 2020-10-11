@@ -1,5 +1,5 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2011, Timothy Legge <timlegge@gmail.com> and Kovid Goyal <kovid@kovidgoyal.net>'
@@ -7,8 +7,6 @@ __docformat__ = 'restructuredtext en'
 
 import os
 
-from calibre.constants import ispy3
-from polyglot.builtins import unicode_type
 from calibre.devices.usbms.driver import debug_print
 
 
@@ -165,15 +163,15 @@ class Bookmark():  # {{{
         # TL        self.book_length = int(unpack('>I', record0[0x04:0x08])[0])
         pass
 
-    def __unicode__(self):
+    def __str__(self):
         '''
         A string representation of this object, suitable for printing to
         console
         '''
-        ans = [u"Kobo bookmark:"]
+        ans = ["Kobo bookmark:"]
 
         def fmt(x, y):
-            ans.append(u'%-20s: %s'%(unicode_type(x), unicode_type(y)))
+            ans.append('%-20s: %s'%(str(x), str(y)))
 
         if self.contentId:
             fmt('ContentID', self.contentId)
@@ -186,11 +184,9 @@ class Bookmark():  # {{{
         if self.user_notes:
             fmt('User Notes', self.user_notes)
 
-        ans = u'\n'.join(ans) + u"\n"
+        ans = '\n'.join(ans) + "\n"
 
         return ans
 
-    if ispy3:
-        __str__ = __unicode__
 
 # }}}

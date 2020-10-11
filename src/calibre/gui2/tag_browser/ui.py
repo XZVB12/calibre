@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2011, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -108,7 +108,7 @@ class TagBrowserMixin(object):  # {{{
         opportunity to edit the name.
         '''
         db = self.library_view.model().db
-        user_cats = db.prefs.get('user_categories', {})
+        user_cats = db.new_api.pref('user_categories', {})
 
         # Ensure that the temporary name we will use is not already there
         i = 0
@@ -127,6 +127,7 @@ class TagBrowserMixin(object):  # {{{
         user_cats[new_cat] = []
         db.new_api.set_pref('user_categories', user_cats)
         self.tags_view.recount()
+        db.new_api.clear_search_caches()
         m = self.tags_view.model()
         idx = m.index_for_path(m.find_category_node('@' + new_cat))
         self.tags_view.show_item_at_index(idx)
@@ -148,6 +149,7 @@ class TagBrowserMixin(object):  # {{{
             db.new_api.set_pref('user_categories', d.categories)
             db.new_api.refresh_search_locations()
             self.tags_view.recount()
+            db.new_api.clear_search_caches()
             self.user_categories_edited()
 
     def do_delete_user_category(self, category_name):
@@ -157,7 +159,7 @@ class TagBrowserMixin(object):  # {{{
         if category_name.startswith('@'):
             category_name = category_name[1:]
         db = self.library_view.model().db
-        user_cats = db.prefs.get('user_categories', {})
+        user_cats = db.new_api.pref('user_categories', {})
         cat_keys = sorted(user_cats.keys(), key=sort_key)
         has_children = False
         found = False
@@ -182,6 +184,7 @@ class TagBrowserMixin(object):  # {{{
                 del user_cats[k]
         db.new_api.set_pref('user_categories', user_cats)
         self.tags_view.recount()
+        db.new_api.clear_search_caches()
         self.user_categories_edited()
 
     def do_del_item_from_user_cat(self, user_cat, item_name, item_category):
@@ -192,7 +195,7 @@ class TagBrowserMixin(object):  # {{{
         if user_cat.startswith('@'):
             user_cat = user_cat[1:]
         db = self.library_view.model().db
-        user_cats = db.prefs.get('user_categories', {})
+        user_cats = db.new_api.pref('user_categories', {})
         if user_cat not in user_cats:
             error_dialog(self.tags_view, _('Remove category'),
                          _('User category %s does not exist')%user_cat,
@@ -201,6 +204,7 @@ class TagBrowserMixin(object):  # {{{
         self.tags_view.model().delete_item_from_user_category(user_cat,
                                                       item_name, item_category)
         self.tags_view.recount()
+        db.new_api.clear_search_caches()
         self.user_categories_edited()
 
     def do_add_item_to_user_cat(self, dest_category, src_name, src_category):
@@ -209,7 +213,7 @@ class TagBrowserMixin(object):  # {{{
         dest_category. Any leading '@' is removed
         '''
         db = self.library_view.model().db
-        user_cats = db.prefs.get('user_categories', {})
+        user_cats = db.new_api.pref('user_categories', {})
 
         if dest_category and dest_category.startswith('@'):
             dest_category = dest_category[1:]
@@ -229,6 +233,7 @@ class TagBrowserMixin(object):  # {{{
             user_cats[dest_category].append([src_name, src_category, 0])
         db.new_api.set_pref('user_categories', user_cats)
         self.tags_view.recount()
+        db.new_api.clear_search_caches()
         self.user_categories_edited()
 
     def get_book_ids(self, use_virtual_library, db, category):
@@ -252,7 +257,8 @@ class TagBrowserMixin(object):  # {{{
         else:
             key = sort_key
 
-        d = TagListEditor(self, cat_name=db.field_metadata[category]['name'],
+        d = TagListEditor(self, category=category,
+                          cat_name=db.field_metadata[category]['name'],
                           tag_to_match=tag,
                           get_book_ids=partial(self.get_book_ids, db=db, category=category),
                           sorter=key, ttm_is_first_letter=is_first_letter)
@@ -462,7 +468,7 @@ class TagBrowserBar(QWidget):  # {{{
             ' items, etc.'
         )))
         b.setIcon(QIcon(I('config.png')))
-        b.m = QMenu()
+        b.m = QMenu(b)
         b.setMenu(b.m)
 
         self.item_search = FindBox(parent)
@@ -479,7 +485,7 @@ class TagBrowserBar(QWidget):  # {{{
                 'categories using syntax similar to search. For example, '
                 'tags:foo will find foo in any tag, but not in authors etc. Entering '
                 '*foo will collapse all categories then showing only those categories '
-                'with items containing the text "foo"') + '</p')
+                'with items containing the text "foo"') + '</p>')
         ac = QAction(parent)
         parent.addAction(ac)
         parent.keyboard.register_shortcut('tag browser find box',
@@ -495,7 +501,7 @@ class TagBrowserBar(QWidget):  # {{{
         ac = QAction(parent)
         parent.addAction(ac)
         parent.keyboard.register_shortcut('tag browser find button',
-                _('Find in Tag browser'), default_keys=(),
+                _('Find in the Tag browser'), default_keys=(),
                 action=ac, group=_('Tag browser'))
         ac.triggered.connect(self.search_button.click)
 

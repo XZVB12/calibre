@@ -1,8 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2019, Kovid Goyal <kovid at kovidgoyal.net>
 
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
 from functools import partial
@@ -13,10 +12,11 @@ from PyQt5.Qt import (
 )
 from PyQt5.QtWebEngineWidgets import QWebEnginePage
 
-from calibre.constants import isosx
+from calibre.constants import ismacos
 from calibre.gui2 import elided_text
+from calibre.gui2.viewer.config import get_session_pref
 from calibre.gui2.viewer.shortcuts import index_to_key_sequence
-from calibre.gui2.viewer.web_view import get_session_pref, set_book_path, vprefs
+from calibre.gui2.viewer.web_view import set_book_path, vprefs
 from calibre.gui2.widgets2 import Dialog
 from calibre.utils.icu import primary_sort_key
 from polyglot.builtins import iteritems
@@ -39,12 +39,12 @@ class Actions(object):
 
 def all_actions():
     if not hasattr(all_actions, 'ans'):
-        all_actions.ans = Actions({
+        amap = {
             'color_scheme': Action('format-fill-color.png', _('Switch color scheme')),
             'back': Action('back.png', _('Back')),
             'forward': Action('forward.png', _('Forward')),
             'open': Action('document_open.png', _('Open e-book')),
-            'copy': Action('edit-copy.png', _('Copy to clipboard')),
+            'copy': Action('edit-copy.png', _('Copy to clipboard'), 'copy_to_clipboard'),
             'increase_font_size': Action('font_size_larger.png', _('Increase font size'), 'increase_font_size'),
             'decrease_font_size': Action('font_size_smaller.png', _('Decrease font size'), 'decrease_font_size'),
             'fullscreen': Action('page.png', _('Toggle full screen'), 'toggle_full_screen'),
@@ -64,14 +64,16 @@ def all_actions():
             'print': Action('print.png', _('Print book'), 'print'),
             'preferences': Action('config.png', _('Preferences'), 'preferences'),
             'metadata': Action('metadata.png', _('Show book metadata'), 'metadata'),
-        })
+            'toggle_highlights': Action('highlight_only_on.png', _('Browse highlights in book'), 'toggle_highlights'),
+        }
+        all_actions.ans = Actions(amap)
     return all_actions.ans
 
 
 DEFAULT_ACTIONS = (
-        'back', 'forward', None, 'open', 'copy', 'increase_font_size', 'decrease_font_size', 'fullscreen', 'color_scheme',
-        None, 'previous', 'next', None, 'toc', 'search', 'bookmarks', 'lookup', 'reference', 'chrome', None, 'mode', 'print', 'preferences',
-        'metadata', 'inspector'
+    'back', 'forward', None, 'open', 'copy', 'increase_font_size', 'decrease_font_size', 'fullscreen', 'color_scheme',
+    None, 'previous', 'next', None, 'toc', 'search', 'bookmarks', 'lookup', 'toggle_highlights', 'chrome', None,
+    'mode', 'print', 'preferences', 'metadata', 'inspector'
 )
 
 
@@ -118,7 +120,7 @@ class ActionsToolBar(ToolBar):
         a.triggered.connect(self.customize)
         a = m.addAction(_('Hide this toolbar'))
         a.triggered.connect(self.hide_toolbar)
-        m.exec_(pos)
+        m.exec_(self.mapToGlobal(pos))
 
     def hide_toolbar(self):
         self.web_view.trigger_shortcut('toggle_toolbar')
@@ -148,8 +150,7 @@ class ActionsToolBar(ToolBar):
         a.setMenu(m)
         m.aboutToShow.connect(self.populate_open_menu)
         connect_lambda(a.triggered, self, lambda self: self.open_book_at_path.emit(None))
-        self.copy_action = a = page.action(QWebEnginePage.Copy)
-        a.setIcon(aa.copy.icon), a.setText(aa.copy.text)
+        self.copy_action = shortcut_action('copy')
         self.increase_font_size_action = shortcut_action('increase_font_size')
         self.decrease_font_size_action = shortcut_action('decrease_font_size')
         self.fullscreen_action = shortcut_action('fullscreen')
@@ -166,6 +167,8 @@ class ActionsToolBar(ToolBar):
         self.bookmarks_action = a = shortcut_action('bookmarks')
         a.setCheckable(True)
         self.reference_action = a = shortcut_action('reference')
+        a.setCheckable(True)
+        self.toggle_highlights_action = self.highlights_action = a = shortcut_action('toggle_highlights')
         a.setCheckable(True)
         self.lookup_action = a = shortcut_action('lookup')
         a.setCheckable(True)
@@ -223,7 +226,7 @@ class ActionsToolBar(ToolBar):
         self.reference_action.setChecked(enabled)
 
     def update_dock_actions(self, visibility_map):
-        for k in ('toc', 'bookmarks', 'lookup', 'inspector'):
+        for k in ('toc', 'bookmarks', 'lookup', 'inspector', 'highlights'):
             ac = getattr(self, '{}_action'.format(k))
             ac.setChecked(visibility_map[k])
 
@@ -307,7 +310,7 @@ class ActionsList(QListWidget):
         self.viewport().setAcceptDrops(True)
         self.setDropIndicatorShown(True)
         self.setDragDropMode(self.InternalMove)
-        self.setDefaultDropAction(Qt.CopyAction if isosx else Qt.MoveAction)
+        self.setDefaultDropAction(Qt.CopyAction if ismacos else Qt.MoveAction)
         self.setMinimumHeight(400)
         self.is_source = is_source
         if is_source:

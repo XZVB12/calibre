@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__ = 'GPL v3'
 __copyright__ = '2015, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -11,7 +11,7 @@ from operator import itemgetter
 from functools import partial
 from collections import defaultdict
 from csv import writer as csv_writer
-from io import BytesIO
+from io import StringIO
 
 import regex
 from PyQt5.Qt import (
@@ -35,11 +35,15 @@ from calibre.gui2.progress_indicator import ProgressIndicator
 from calibre.utils.icu import primary_contains, numeric_sort_key
 from calibre.utils.unicode_names import character_name_from_code
 from calibre.utils.localization import calibre_langcode_to_name, canonicalize_lang
-from polyglot.builtins import filter, iteritems, map, range, unicode_type
+from polyglot.builtins import filter, iteritems, map, range, unicode_type, as_bytes
 
 # Utils {{{
 
 ROOT = QModelIndex()
+
+
+def psk(x):
+    return QByteArray(numeric_sort_key(x))
 
 
 def read_state(name, default=None):
@@ -194,7 +198,7 @@ class FilesView(QTableView):
             m.exec_(pos)
 
     def to_csv(self):
-        buf = BytesIO()
+        buf = StringIO(newline='')
         w = csv_writer(buf)
         w.writerow(self.proxy.sourceModel().COLUMN_HEADERS)
         cols = self.proxy.columnCount()
@@ -243,7 +247,6 @@ class FilesModel(FileCollection):
         self.total_size = sum(map(itemgetter(3), self.files))
         self.images_size = sum(map(itemgetter(3), (f for f in self.files if f.category == 'image')))
         self.fonts_size = sum(map(itemgetter(3), (f for f in self.files if f.category == 'font')))
-        psk = numeric_sort_key
         self.sort_keys = tuple((psk(entry.dir), psk(entry.basename), entry.size, psk(self.CATEGORY_NAMES.get(entry.category, '')))
                                for entry in self.files)
         self.endResetModel()
@@ -427,7 +430,6 @@ class ImagesModel(FileCollection):
         self.beginResetModel()
         self.files = data['images']
         self.total_size = sum(map(itemgetter(3), self.files))
-        psk = numeric_sort_key
         self.sort_keys = tuple((psk(entry.basename), entry.size, len(entry.usage), (entry.width, entry.height))
                                for entry in self.files)
         self.endResetModel()
@@ -525,7 +527,6 @@ class LinksModel(FileCollection):
         self.links = self.files = data['links']
         self.total_size = len(self.links)
         self.num_bad = sum(1 for link in self.links if link.ok is False)
-        psk = numeric_sort_key
         self.sort_keys = tuple((
             link.ok, psk(link.location.name), psk(link.text or ''), psk(link.href or ''), psk(link.anchor.id or ''), psk(link.anchor.text or ''))
                                for link in self.links)
@@ -686,7 +687,6 @@ class WordsModel(FileCollection):
         self.beginResetModel()
         self.total_words, self.files = data['words']
         self.total_size = len({entry.locale for entry in self.files})
-        psk = numeric_sort_key
         lsk_cache = {}
 
         def locale_sort_key(loc):
@@ -783,7 +783,6 @@ class CharsModel(FileCollection):
         self.beginResetModel()
         self.files = data['chars']
         self.all_chars = tuple(entry.char for entry in self.files)
-        psk = numeric_sort_key
         self.sort_keys = tuple((psk(entry.char), None, entry.codepoint, entry.count) for entry in self.files)
         self.endResetModel()
 
@@ -1093,7 +1092,7 @@ class CSSWidget(QWidget):
         self.proxy.sort(0, self.sort_order)
 
     def to_csv(self):
-        buf = BytesIO()
+        buf = StringIO(newline='')
         w = csv_writer(buf)
         w.writerow([_('Style Rule'), _('Number of matches')])
         for r in range(self.proxy.rowCount()):
@@ -1239,7 +1238,7 @@ class ClassesWidget(CSSWidget):
         self.summary.setText(_('{0} classes, {1} unused').format(self.model.rowCount(), self.model.num_unused))
 
     def to_csv(self):
-        buf = BytesIO()
+        buf = StringIO(newline='')
         w = csv_writer(buf)
         w.writerow([_('Class'), _('Number of matches')])
         for r in range(self.proxy.rowCount()):
@@ -1361,7 +1360,7 @@ class ReportsWidget(QWidget):
             (_('CSV files'), ['csv'])], all_files=False, initial_filename='%s.csv' % category)
         if fname:
             with open(fname, 'wb') as f:
-                f.write(data)
+                f.write(as_bytes(data))
 
 
 class Reports(Dialog):

@@ -1,7 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 from PyQt5.Qt import (
@@ -141,6 +140,12 @@ class SavedSearchEditor(Dialog):
             ans = i.text()
             if ans in self.searches:
                 return ans
+
+    def keyPressEvent(self, ev):
+        if ev.key() == Qt.Key_Delete:
+            self.del_search()
+            return
+        return Dialog.keyPressEvent(self, ev)
 
     def populate_search_list(self):
         self.slist.clear()

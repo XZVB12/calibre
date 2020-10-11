@@ -185,21 +185,24 @@ The example shows several things:
     * white space is ignored and can be used anywhere within the expression.
     * constant strings are enclosed in matching quotes, either ``'`` or ``"``.
 
-The language is similar to ``functional`` languages in that it is built almost entirely from functions. A statement is a function. An expression is a function. Constants and identifiers can be thought of as functions returning the value indicated by the constant or stored in the identifier.
+The language is similar to ``functional`` languages in that it is built almost entirely from functions. An expression is generally a function. Constants and identifiers can be thought of as functions returning the value indicated by the constant or stored in the identifier.
 
-The syntax of the language is shown by the following grammar::
+The syntax of the language is shown by the following grammar. For a discussion of 'compare','if_expression', and 'template_call' see :ref:`General Program Mode <general_mode>`:::
 
-    constant   ::= " string " | ' string ' | number
-    identifier ::= sequence of letters or ``_`` characters
-    function   ::= identifier ( statement [ , statement ]* )
-    expression ::= identifier | constant | function | assignment
-    assignment ::= identifier '=' expression
-    statement  ::= expression [ ; expression ]*
-    program    ::= statement
+    program         ::= expression_list
+    expression_list ::= expression [ ';' expression ]*
+    expression      ::= identifier | constant | function | assignment | compare | if_expression
+    function        ::= identifier '(' expression [ ',' expression ]* ')'
+    compare         ::= expression compare_op expression
+    compare_op      ::= '==' | '!=' | '>=' | '>' | '<=' | '<' | '==#' | '!=#' | '>=#' | '>#' | '<=#' | '<#'
+    if_expression   ::= 'if' expression 'then' expression_list ['else' statement] 'fi'
+    assignment      ::= identifier '=' expression
+    constant        ::= " string " | ' string ' | number
+    identifier      ::= sequence of letters or ``_`` characters
 
 Comments are lines with a '#' character at the beginning of the line.
 
-An ``expression`` always has a value, either the value of the constant, the value contained in the identifier, or the value returned by a function. The value of a ``statement`` is the value of the last expression in the sequence of statements. As such, the value of the program (statement)::
+An ``expression`` without errors always has a value. The value of an ``expression_list`` is the value of the last expression in the list. As such, the value of the program (expression_list)::
 
     1; 2; 'foobar'; 3
 
@@ -251,6 +254,7 @@ The following functions are available in addition to those described in single-f
       returns "yes" if the yes/no field ``"#bool"`` is either undefined (neither True nor False) or True. More than one of ``is_undefined``, ``is_false``, or ``is_true`` can be set to 1.  This function is usually used by the ``test()`` or ``is_empty()`` functions.
     * ``ceiling(x)`` -- returns the smallest integer greater than or equal to x. Throws an exception if x is not a number.
     * ``cmp(x, y, lt, eq, gt)`` -- compares x and y after converting both to numbers. Returns ``lt`` if x < y. Returns ``eq`` if x == y. Otherwise returns ``gt``.
+    * ``connected_device_name(storage_location)`` -- if a device is connected then return the device name, otherwise return the empty string. Each storage location on a device can have a different name. The location names are 'main', 'carda' and 'cardb'. This function works only in the GUI.
     * ``current_library_name()`` -- return the last name on the path to the current calibre library. This function can be called in template program mode using the template ``{:'current_library_name()'}``.
     * ``current_library_path()`` -- return the path to the current calibre library. This function can be called in template program mode using the template ``{:'current_library_path()'}``.
     * ``days_between(date1, date2)`` -- return the number of days between ``date1`` and ``date2``. The number is positive if ``date1`` is greater than ``date2``, otherwise negative. If either ``date1`` or ``date2`` are not dates, the function returns the empty string.
@@ -365,7 +369,64 @@ Using general program mode
 
 For more complicated template programs, it is sometimes easier to avoid template syntax (all the `{` and `}` characters), instead writing a more classical-looking program. You can do this in calibre by beginning the template with `program:`. In this case, no template processing is done. The special variable `$` is not set. It is up to your program to produce the correct results.
 
-One advantage of `program:` mode is that the brackets are no longer special. For example, it is not necessary to use `[[` and `]]` when using the `template()` function. Another advantage is that program mode templates are compiled to Python and can run much faster than  templates in the other two modes. Speed improvement depends on the complexity of the templates; the more complicated the template the more the improvement. Compilation is turned off or on using the tweak ``compile_gpm_templates`` (Compile General Program Mode templates to Python). The main reason to turn off compilation is if a compiled template does not work, in which case please file a bug report.
+One advantage of `program:` mode is that the brackets are no longer special. For example, it is not necessary to use `[[` and `]]` when using the `template()` function. Another advantage is readability.
+
+Both General and Template Program Modes support if tests with the following syntax:
+    * ``if`` <<expression>> ``then`` <<expression_list>> [ ``else`` <<expression_list>> ] ``fi``.
+The else part is optional. The words ``if``, ``then``, ``else``, and ``fi`` are reserved. You cannot use them as identifier names. You can put newlines and white space wherever they make sense. <<expression>> is one template language expression. Semicolons are not allowed. <<expression_list>> is a semicolon-separated sequence of template language expressions, including nested ifs. Examples:
+    * ``program: if field('series') then 'yes' else 'no' fi``
+    * ``program: if field('series') then a = 'yes'; b = 'no' else a = 'no'; b='yes' fi; strcat(a, '-', b)``
+    * Nested ``if`` example::
+
+        program:
+            if field('series')
+            then
+                if check_yes_no(field('#mybool'), '', '', '1')
+                then
+                    'yes'
+                else
+                    'no'
+                fi
+            else
+                'no series'
+            fi
+
+An ``if`` produces a value like any other language expression. This means that all the following are valid:
+    * ``program: if field('series') then 'foo' else 'bar' fi``
+    * ``program: if field('series') then a = 'foo' else a = 'bar' fi; a``
+    * ``program: a = if field('series') then 'foo' else 'bar' fi; a``
+    * ``program: a = field(if field('series') then 'series' else 'title' fi); a``
+
+Program mode also supports the classic relational (comparison) operators: ``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``. The operators return '1' if they evaluate to True, '' otherwise. They do case-insensitive string comparison using lexical order. Examples:
+    * ``program: field('series') == 'foo'`` returns '1' if the book's series is 'foo'.
+    * ``program: if field('series') != 'foo' then 'bar' else 'mumble' fi`` returns 'bar' if the book's series is not 'foo', else 'mumble'.
+    * ``program: if or(field('series') == 'foo', field('series') == '1632') then 'yes' else 'no' fi`` returns 'yes' if series is either 'foo' or '1632', otherwise 'no'.
+    * ``program: if '11' > '2' then 'yes' else 'no' fi`` returns 'no' because it is doing a lexical comparison. If you want numeric comparison instead of lexical comparison, use the operators ``==#``, ``!=#``, ``<#``, ``<=#``, ``>#``, ``>=#``. In this case the left and right values are set to zero if they are undefined or the empty string. If they are not numbers then an error is raised.
+
+General Program Mode supports saving General Program Mode templates and calling those templates from another template. You save
+templates using :guilabel:`Preferences->Advanced->Template functions`. More information is provided in that dialog. You call
+a template the same way you call a function, passing positional arguments if desired. An argument can be any expression.
+Examples of calling a template, assuming the stored template is named ``foo``:
+
+    * ``foo()`` -- call the template passing no arguments.
+    * ``foo(a, b)`` call the template passing the values of the two variables ``a`` and ``b``.
+    * ``foo(if field('series') then field('series_index') else 0 fi)`` -- if the book has a ``series`` then pass the             ``series_index``, otherwise pass the value ``0``.
+
+In the stored template you retrieve the arguments passed in the call using the ``arguments`` function. It both declares and
+initializes local variables. The variables are positional; they get the value of the value given in the call in the same position.
+If the corresponding parameter is not provided in the call then ``arguments`` gives that parameter the provided default value. If there is no default value then the argument is set to the empty string. For example, the following ``arguments`` function declares 2 variables, ``key``, ``alternate``::
+
+            ``arguments(key, alternate='series')
+
+Examples, again assuming the stored template is named ``foo``:
+
+    * ``foo('#myseries')`` -- argument ``key`` will have the value ``myseries`` and the argument ``alternate`` will have the value ``series``.
+    * ``foo('series', '#genre')`` the variable ``key`` is assigned the value ``series`` and the variable ``alternate`` is assigned the value ``#genre``.
+    * ``foo()`` -- the variable ``key`` is assigned the empty string and the variable ``alternate`` is assigned the value ``#genre``.
+
+An easy way to test stored templates is using the ``Template tester`` dialog. Give it a keyboard shortcut in
+:guilabel:`Preferences->Advanced->Keyboard shortcuts->Template tester`. Giving the ``Stored templates`` dialog a
+shortcut will help switching more rapidly between the tester and editing the stored template's source code.
 
 The following example is a `program:` mode implementation of a recipe on the MobileRead forum: "Put series into the title, using either initials or a shortened form. Strip leading articles from the series name (any)." For example, for the book The Two Towers in the Lord of the Rings series, the recipe gives `LotR [02] The Two Towers`. Using standard templates, the recipe requires three custom columns and a plugboard, as explained in the following:
 
@@ -448,10 +509,10 @@ The following program produces the same results as the original recipe, using on
 It would be possible to do the above with no custom columns by putting the program into the template box of the plugboard. However, to do so, all comments must be removed because the plugboard text box does not support multi-line editing. It is debatable whether the gain of not having the custom column is worth the vast increase in difficulty caused by the program being one giant line.
 
 
-User-defined template functions
--------------------------------
+User-defined Python template functions
+------------------------------------------
 
-You can add your own functions to the template processor. Such functions are written in Python, and can be used in any of the three template programming modes. The functions are added by going to Preferences -> Advanced -> Template functions. Instructions are shown in that dialog.
+You can add your own Python functions to the template processor. Such functions are written in Python, and can be used in any of the three template programming modes. The functions are added by going to :guilabel:`Preferences -> Advanced -> Template functions`. Instructions are shown in that dialog.
 
 Special notes for save/send templates
 -------------------------------------

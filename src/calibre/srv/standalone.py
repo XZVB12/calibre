@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2015, Kovid Goyal <kovid at kovidgoyal.net>
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 import json
 import os
@@ -9,7 +9,7 @@ import signal
 import sys
 
 from calibre import as_unicode
-from calibre.constants import is_running_from_develop, isosx, iswindows, plugins
+from calibre.constants import is_running_from_develop, ismacos, iswindows, plugins
 from calibre.db.delete_service import shutdown as shutdown_delete_service
 from calibre.db.legacy import LibraryDatabase
 from calibre.srv.bonjour import BonJour
@@ -20,7 +20,7 @@ from calibre.srv.loop import BadIPSpec, ServerLoop
 from calibre.srv.manage_users_cli import manage_users_cli
 from calibre.srv.opts import opts_to_parser
 from calibre.srv.users import connect
-from calibre.srv.utils import RotatingLog
+from calibre.srv.utils import HandleInterrupt, RotatingLog
 from calibre.utils.config import prefs
 from calibre.utils.localization import localize_user_manual_link
 from calibre.utils.lock import singleinstance
@@ -129,7 +129,7 @@ libraries that the main calibre program knows about will be used.
             ' URLs and export them.'
     ))
 
-    if not iswindows and not isosx:
+    if not iswindows and not ismacos:
         # Does not work on macOS because if we fork() we cannot connect to Core
         # Serives which is needed by the QApplication() constructor, which in
         # turn is needed by ensure_app()
@@ -188,7 +188,7 @@ def main(args=sys.argv):
         if getattr(opts, 'daemonize', False):
             raise SystemExit(
                 'Cannot specify --auto-reload and --daemonize at the same time')
-        from calibre.srv.auto_reload import auto_reload, NoAutoReload
+        from calibre.srv.auto_reload import NoAutoReload, auto_reload
         try:
             from calibre.utils.logging import default_log
             return auto_reload(default_log, listen_on=opts.listen_on)
@@ -241,7 +241,8 @@ def main(args=sys.argv):
     # Needed for dynamic cover generation, which uses Qt for drawing
     from calibre.gui2 import ensure_app, load_builtin_fonts
     ensure_app(), load_builtin_fonts()
-    try:
-        server.serve_forever()
-    finally:
-        shutdown_delete_service()
+    with HandleInterrupt(server.stop):
+        try:
+            server.serve_forever()
+        finally:
+            shutdown_delete_service()

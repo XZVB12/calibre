@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2015, Kovid Goyal <kovid at kovidgoyal.net>
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 import os
 import re
@@ -16,7 +16,7 @@ from PyQt5.Qt import QCoreApplication, QIcon, QObject, QTimer
 from calibre import force_unicode, plugins, prints
 from calibre.constants import (
     DEBUG, MAIN_APP_UID, __appname__, filesystem_encoding, get_portable_base,
-    islinux, isosx, iswindows
+    islinux, ismacos, iswindows
 )
 from calibre.gui2 import (
     Application, choose_dir, error_dialog, gprefs, initialize_file_icon_provider,
@@ -353,12 +353,20 @@ class GuiRunner(QObject):
         self.initialize_db()
 
 
+def set_restarting_env_var():
+    if iswindows:
+        ctime = plugins['winutil'][0].get_process_times(None)[0]
+        os.environ['CALIBRE_RESTARTING_FROM_GUI'] = str(ctime)
+    else:
+        os.environ['CALIBRE_RESTARTING_FROM_GUI'] = str(os.getpid())
+
+
 def run_in_debug_mode():
     from calibre.debug import run_calibre_debug
     import tempfile, subprocess
     fd, logpath = tempfile.mkstemp('.txt')
     os.close(fd)
-    os.environ['CALIBRE_RESTARTING_FROM_GUI'] = environ_item('1')
+    set_restarting_env_var()
     run_calibre_debug(
         '--gui-debug', logpath, stdout=lopen(logpath, 'wb'),
         stderr=subprocess.STDOUT, stdin=lopen(os.devnull, 'rb'))
@@ -382,7 +390,7 @@ def run_gui(opts, args, listener, app, gui_debug=None):
         wizard().exec_()
         dynamic.set('welcome_wizard_was_run', True)
     from calibre.gui2.ui import Main
-    if isosx:
+    if ismacos:
         actions = tuple(Main.create_application_menubar())
     else:
         actions = tuple(Main.get_menubar_actions())
@@ -403,8 +411,8 @@ def run_gui(opts, args, listener, app, gui_debug=None):
                 run_calibre_debug('-c', 'import sys, os, time; time.sleep(3); os.execlp("open", "open", sys.argv[-1])', app)
             else:
                 import subprocess
-                os.environ['CALIBRE_RESTARTING_FROM_GUI'] = environ_item('1')
-                if iswindows and hasattr(winutil, 'prepare_for_restart'):
+                set_restarting_env_var()
+                if iswindows:
                     winutil.prepare_for_restart()
                 if hasattr(sys, 'run_local'):
                     cmd = [sys.run_local]
@@ -446,7 +454,7 @@ def cant_start(msg=_('If you are sure it is not running')+', ',
                listener_failed=False):
     base = '<p>%s</p><p>%s %s'
     where = __appname__ + ' '+_('may be running in the system tray, in the')+' '
-    if isosx:
+    if ismacos:
         where += _('upper right region of the screen.')
     else:
         where += _('lower right region of the screen.')
@@ -514,9 +522,31 @@ def create_listener():
     return Listener(address=gui_socket_address())
 
 
+def wait_for_parent_to_die(ppid, max_wait=10):
+    ppid = int(ppid)
+    if iswindows:
+        get_process_times = plugins['winutil'][0].get_process_times
+
+        def parent_done():
+            try:
+                ctime = get_process_times(os.getppid())[0]
+            except Exception:
+                return True
+            return ctime > ppid
+
+    else:
+        def parent_done():
+            return os.getppid() != ppid
+
+    st = time.monotonic()
+    while not parent_done() and time.monotonic() - st < max_wait:
+        time.sleep(0.1)
+
+
 def main(args=sys.argv):
-    if os.environ.pop('CALIBRE_RESTARTING_FROM_GUI', None) == environ_item('1'):
-        time.sleep(2)  # give the parent process time to cleanup and close
+    ppid = os.environ.pop('CALIBRE_RESTARTING_FROM_GUI', None)
+    if ppid is not None:
+        wait_for_parent_to_die(ppid)
     if iswindows and 'CALIBRE_REPAIR_CORRUPTED_DB' in os.environ:
         windows_repair()
         return 0

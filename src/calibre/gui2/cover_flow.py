@@ -1,5 +1,5 @@
-#!/usr/bin/env  python2
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2008, Kovid Goyal kovid@kovidgoyal.net'
@@ -14,9 +14,8 @@ import sys, os, time
 from PyQt5.Qt import (QImage, QSizePolicy, QTimer, QDialog, Qt, QSize, QAction,
         QStackedLayout, QLabel, pyqtSignal, QKeySequence, QFont, QApplication)
 
-from calibre import plugins
 from calibre.ebooks.metadata import rating_to_stars
-from calibre.constants import islinux
+from calibre.constants import islinux, plugins
 from calibre.gui2 import (config, available_height, available_width, gprefs,
         rating_font)
 

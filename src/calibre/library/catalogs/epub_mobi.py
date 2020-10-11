@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__ = 'GPL v3'
 __copyright__ = '2012, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -141,9 +141,9 @@ class EPUB_MOBI(CatalogPlugin):
                           dest='merge_comments_rule',
                           action=None,
                           help=_("#<custom field>:[before|after]:[True|False] specifying:\n"
-                          " <custom field> Custom field containing notes to merge with Comments\n"
-                          " [before|after] Placement of notes with respect to Comments\n"
-                          " [True|False] - A horizontal rule is inserted between notes and Comments\n"
+                          " <custom field> Custom field containing notes to merge with comments\n"
+                          " [before|after] Placement of notes with respect to comments\n"
+                          " [True|False] - A horizontal rule is inserted between notes and comments\n"
                           "Default: '%default'\n"
                           "Applies to: AZW3, EPUB, MOBI output formats")),
                    Option('--output-profile',

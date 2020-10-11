@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2010, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -215,7 +215,7 @@ class SearchBar(QFrame):  # {{{
         sb.setAutoRaise(True)
         sb.setText(_('Sort'))
         sb.setIcon(QIcon(I('sort.png')))
-        sb.setMenu(QMenu())
+        sb.setMenu(QMenu(sb))
         sb.menu().aboutToShow.connect(self.populate_sort_menu)
         sb.setVisible(False)
         l.addWidget(sb)

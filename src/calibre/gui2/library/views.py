@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2010, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -206,6 +206,7 @@ class BooksView(QTableView):  # {{{
 
     files_dropped = pyqtSignal(object)
     books_dropped = pyqtSignal(object)
+    selection_changed = pyqtSignal()
     add_column_signal = pyqtSignal()
     is_library_view = True
 
@@ -288,6 +289,7 @@ class BooksView(QTableView):  # {{{
             wv.setSelectionBehavior(QAbstractItemView.SelectRows)
             wv.setSortingEnabled(True)
         self.selectionModel().currentRowChanged.connect(self._model.current_changed)
+        self.selectionModel().selectionChanged.connect(self.selection_changed.emit)
         self.preserve_state = partial(PreserveViewState, self)
         self.marked_changed_listener = FunctionDispatcher(self.marked_changed)
 
@@ -600,6 +602,19 @@ class BooksView(QTableView):  # {{{
         except Exception:
             idx = -1
         self.set_sort_indicator(idx, ascending)
+
+    def resort(self):
+        with self.preserve_state(preserve_vpos=False, require_selected_ids=False):
+            self._model.resort(reset=True)
+
+    def reverse_sort(self):
+        with self.preserve_state(preserve_vpos=False, require_selected_ids=False):
+            m = self.model()
+            try:
+                sort_col, order = m.sorted_on
+            except TypeError:
+                sort_col, order = 'date', True
+            self.sort_by_named_field(sort_col, not order)
     # }}}
 
     # Ondevice column {{{
@@ -760,7 +775,7 @@ class BooksView(QTableView):  # {{{
             name += ' books view state'
             db = getattr(self.model(), 'db', None)
             if db is not None:
-                ans = db.prefs.get(name, None)
+                ans = db.new_api.pref(name)
                 if ans is None:
                     ans = gprefs.get(name, None)
                     try:
@@ -1222,15 +1237,17 @@ class BooksView(QTableView):  # {{{
                 m.index(max(group), max_col)), sm.Select)
         sm.select(sel, sm.ClearAndSelect)
 
-    def get_selected_ids(self):
+    def get_selected_ids(self, as_set=False):
         ans = []
+        seen = set()
         m = self.model()
         for idx in self.selectedIndexes():
             r = idx.row()
             i = m.id(r)
-            if i not in ans:
+            if i not in seen:
                 ans.append(i)
-        return ans
+                seen.add(i)
+        return seen if as_set else ans
 
     @property
     def current_id(self):
@@ -1406,5 +1423,13 @@ class DeviceBooksView(BooksView):  # {{{
     def set_editable(self, editable, supports_backloading):
         self._model.set_editable(editable)
         self.drag_allowed = supports_backloading
+
+    def resort(self):
+        h = self.horizontalHeader()
+        self.model().sort(h.sortIndicatorSection(), h.sortIndicatorOrder())
+
+    def reverse_sort(self):
+        h = self.horizontalHeader()
+        h.setSortIndicator(h.sortIndicatorSection(), 1 - int(h.sortIndicatorOrder()))
 
 # }}}

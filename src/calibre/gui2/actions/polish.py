@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2013, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -328,7 +328,7 @@ class Report(QDialog):  # {{{
         la.setVisible(False)
         la.setWordWrap(True)
 
-        self.ign = QCheckBox(_('Ignore remaining report'), self)
+        self.ign = QCheckBox(_('Ignore remaining reports'), self)
         l.addWidget(self.ign, 2, 0)
 
         bb = self.bb = QDialogButtonBox(QDialogButtonBox.Close)

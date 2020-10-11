@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2013, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -839,7 +839,7 @@ def toc_to_html(toc, container, toc_name, title, lang=None):
     html = E.html(
         E.head(
             E.title(title),
-            E.style(P('templates/inline_toc_styles.css', data=True), type='text/css'),
+            E.style(P('templates/inline_toc_styles.css', data=True).decode('utf-8'), type='text/css'),
         ),
         E.body(
             E.h2(title),

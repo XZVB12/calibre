@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2011, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -827,7 +827,7 @@ class CoversView(QListView):  # {{{
     def show_context_menu(self, point):
         idx = self.currentIndex()
         if idx and idx.isValid() and not idx.data(Qt.UserRole):
-            m = QMenu()
+            m = QMenu(self)
             m.addAction(QIcon(I('view.png')), _('View this cover at full size'), self.show_cover)
             m.addAction(QIcon(I('edit-copy.png')), _('Copy this cover to clipboard'), self.copy_cover)
             m.exec_(QCursor.pos())

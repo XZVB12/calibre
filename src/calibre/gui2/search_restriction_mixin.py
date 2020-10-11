@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__ = 'GPL v3'
 __copyright__ = '2013, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -170,7 +170,7 @@ class CreateVirtualLibrary(QDialog):  # {{{
 
         if editing:
             db = self.gui.current_db
-            virt_libs = db.prefs.get('virtual_libraries', {})
+            virt_libs = db.new_api.pref('virtual_libraries', {})
             for dex,vl in enumerate(sorted(virt_libs.keys(), key=sort_key)):
                 self.vl_name.addItem(vl, virt_libs.get(vl, ''))
                 if vl == editing:
@@ -329,7 +329,7 @@ class SearchRestrictionMixin(object):
         self.search_based_vl_name = None
         self.search_based_vl = None
 
-        self.virtual_library_menu = QMenu()
+        self.virtual_library_menu = QMenu(self.virtual_library)
         self.virtual_library.setMenu(self.virtual_library_menu)
         self.virtual_library_menu.aboutToShow.connect(self.virtual_library_menu_about_to_show)
 
@@ -342,20 +342,20 @@ class SearchRestrictionMixin(object):
         self.search_restriction = ComboBoxWithHelp(self)
         self.search_restriction.setVisible(False)
         self.clear_vl.setText(_("(all books)"))
-        self.ar_menu = QMenu(_('Additional restriction'))
-        self.edit_menu = QMenu(_('Edit Virtual library'))
-        self.rm_menu = QMenu(_('Remove Virtual library'))
+        self.ar_menu = QMenu(_('Additional restriction'), self.virtual_library_menu)
+        self.edit_menu = QMenu(_('Edit Virtual library'), self.virtual_library_menu)
+        self.rm_menu = QMenu(_('Remove Virtual library'), self.virtual_library_menu)
         self.search_restriction_list_built = False
 
     def add_virtual_library(self, db, name, search):
-        virt_libs = db.prefs.get('virtual_libraries', {})
+        virt_libs = db.new_api.pref('virtual_libraries', {})
         virt_libs[name] = search
         db.new_api.set_pref('virtual_libraries', virt_libs)
         db.new_api.clear_search_caches()
 
     def do_create_edit(self, name=None):
         db = self.library_view.model().db
-        virt_libs = db.prefs.get('virtual_libraries', {})
+        virt_libs = db.new_api.pref('virtual_libraries', {})
         cd = CreateVirtualLibrary(self, virt_libs.keys(), editing=name)
         if cd.exec_() == cd.Accepted:
             if name:
@@ -371,7 +371,7 @@ class SearchRestrictionMixin(object):
         a = m.addAction(_('Create Virtual library'))
         a.triggered.connect(partial(self.do_create_edit, name=None))
         db = self.current_db
-        virt_libs = db.prefs.get('virtual_libraries', {})
+        virt_libs = db.new_api.pref('virtual_libraries', {})
 
         a = self.edit_menu
         self.build_virtual_library_list(a, self.do_create_edit)
@@ -437,7 +437,7 @@ class SearchRestrictionMixin(object):
 
     def apply_virtual_library(self, library=None, update_tabs=True):
         db = self.library_view.model().db
-        virt_libs = db.prefs.get('virtual_libraries', {})
+        virt_libs = db.new_api.pref('virtual_libraries', {})
         if not library:
             db.data.set_base_restriction('')
             db.data.set_base_restriction_name('')
@@ -475,7 +475,7 @@ class SearchRestrictionMixin(object):
 
     def build_virtual_library_list(self, menu, handler):
         db = self.library_view.model().db
-        virt_libs = db.prefs.get('virtual_libraries', {})
+        virt_libs = db.new_api.pref('virtual_libraries', {})
         menu.clear()
         menu.setIcon(self.empty)
 
@@ -502,7 +502,7 @@ class SearchRestrictionMixin(object):
     def choose_vl_triggerred(self):
         from calibre.gui2.tweak_book.widgets import QuickOpen, emphasis_style
         db = self.library_view.model().db
-        virt_libs = db.prefs.get('virtual_libraries', {})
+        virt_libs = db.new_api.pref('virtual_libraries', {})
         if not virt_libs:
             return error_dialog(self, _('No Virtual libraries'), _(
                 'No Virtual libraries present, create some first'), show=True)
@@ -524,7 +524,7 @@ class SearchRestrictionMixin(object):
 
     def _remove_vl(self, name, reapply=True):
         db = self.library_view.model().db
-        virt_libs = db.prefs.get('virtual_libraries', {})
+        virt_libs = db.new_api.pref('virtual_libraries', {})
         virt_libs.pop(name, None)
         db.new_api.set_pref('virtual_libraries', virt_libs)
         if reapply and db.data.get_base_restriction_name() == name:

@@ -1,8 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2017, Kovid Goyal <kovid at kovidgoyal.net>
 
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
 
@@ -51,8 +50,10 @@ def option_parser(get_parser, args):  # {{{
 
 Export a catalog in format specified by path/to/destination extension.
 Options control how entries are displayed in the generated catalog output.
-Note that different catalog formats support different sets of options.
-'''
+Note that different catalog formats support different sets of options. To
+see the different options, specify the name of the output file and then the
+{} option.
+'''.format('--help')
         )
     )
 

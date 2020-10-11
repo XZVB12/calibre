@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 # License: GPLv3 Copyright: 2013, Kovid Goyal <kovid at kovidgoyal.net>
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 import json
 
@@ -163,6 +163,7 @@ class ItemEdit(QWidget):
         f.la2 = la = QLabel('<b>'+_('&Name of the ToC entry:'))
         l.addWidget(la)
         self.name = QLineEdit(self)
+        self.name.setPlaceholderText(_('(Untitled)'))
         la.setBuddy(self.name)
         l.addWidget(self.name)
 
@@ -252,7 +253,7 @@ class ItemEdit(QWidget):
         self.current_item, self.current_where = item, where
         self.current_name = None
         self.current_frag = None
-        self.name.setText(_('(Untitled)'))
+        self.name.setText('')
         dest_index, frag = 0, None
         if item is not None:
             if where is None:
@@ -298,4 +299,4 @@ class ItemEdit(QWidget):
     @property
     def result(self):
         return (self.current_item, self.current_where, self.current_name,
-                self.current_frag, unicode_type(self.name.text()))
+                self.current_frag, self.name.text().strip() or _('(Untitled)'))

@@ -1,11 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=utf-8
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__ = 'GPL v3'
 __copyright__ = '2015, Kovid Goyal <kovid at kovidgoyal.net>'
 
-import os, sys, time, ctypes
+import os, sys, time, ctypes, traceback
 from ctypes.wintypes import HLOCAL, LPCWSTR
 from threading import Thread
 
@@ -14,6 +14,7 @@ import winerror
 from calibre import guess_type, prints
 from calibre.constants import is64bit, isportable, isfrozen, __version__, DEBUG, plugins
 from calibre.utils.winreg.lib import Key, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
+from calibre.utils.lock import singleinstance
 from polyglot.builtins import iteritems, itervalues
 
 # See https://msdn.microsoft.com/en-us/library/windows/desktop/cc144154(v=vs.85).aspx
@@ -31,7 +32,7 @@ def default_programs():
 
         'ebook-edit.exe': {
             'icon_id':'editor_icon',
-            'description': _('The calibre e-book editor. It can be used to edit common e-book formats.'),
+            'description': _('The calibre E-book editor. It can be used to edit common e-book formats.'),
             'capability_name': 'Editor' + ('64bit' if is64bit else ''),
             'name': 'calibre Editor' + (' 64-bit' if is64bit else ''),
             'assoc_name': 'calibreEditor' + ('64bit' if is64bit else ''),
@@ -166,11 +167,9 @@ class Register(Thread):
         try:
             self.do_register()
         except Exception:
-            import traceback
             traceback.print_exc()
 
     def do_register(self):
-        from calibre.utils.lock import singleinstance
         try:
             check_allowed()
         except NotAllowed:
@@ -179,11 +178,11 @@ class Register(Thread):
             if self.prefs.get('windows_register_default_programs', None) != __version__:
                 self.prefs['windows_register_default_programs'] = __version__
                 if DEBUG:
-                    st = time.time()
+                    st = time.monotonic()
                     prints('Registering with default programs...')
                 register()
                 if DEBUG:
-                    prints('Registered with default programs in %.1f seconds' % (time.time() - st))
+                    prints('Registered with default programs in %.1f seconds' % (time.monotonic() - st))
 
     def __enter__(self):
         return self
@@ -198,8 +197,8 @@ def get_prog_id_map(base, key_path):
     desc, ans = None, {}
     try:
         k = Key(open_at=key_path, root=base)
-    except WindowsError as err:
-        if err.errno == winerror.ERROR_FILE_NOT_FOUND:
+    except OSError as err:
+        if err.winerror == winerror.ERROR_FILE_NOT_FOUND:
             return desc, ans
         raise
     with k:
@@ -214,8 +213,8 @@ def get_prog_id_map(base, key_path):
 def get_open_data(base, prog_id):
     try:
         k = Key(open_at=r'Software\Classes\%s' % prog_id, root=base)
-    except WindowsError as err:
-        if err.errno == winerror.ERROR_FILE_NOT_FOUND:
+    except OSError as err:
+        if err.winerror == winerror.ERROR_FILE_NOT_FOUND:
             return None, None, None
     with k:
         cmd = k.get(sub_key=r'shell\open\command')
@@ -252,7 +251,6 @@ def friendly_app_name(prog_id=None, exe=None):
     try:
         return plugins['winutil'][0].friendly_name(prog_id, exe)
     except Exception:
-        import traceback
         traceback.print_exc()
 
 
@@ -266,8 +264,8 @@ def find_programs(extensions):
     for base in (HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE):
         try:
             k = Key(open_at=r'Software\RegisteredApplications', root=base)
-        except WindowsError as err:
-            if err.errno == winerror.ERROR_FILE_NOT_FOUND:
+        except OSError as err:
+            if err.winerror == winerror.ERROR_FILE_NOT_FOUND:
                 continue
             raise
         with k:
@@ -275,7 +273,6 @@ def find_programs(extensions):
                 try:
                     app_desc, prog_id_map = get_prog_id_map(base, key_path)
                 except Exception:
-                    import traceback
                     traceback.print_exc()
                     continue
                 for ext in extensions:
@@ -292,8 +289,8 @@ def find_programs(extensions):
     for ext in extensions:
         try:
             k = Key(open_at=r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.%s\OpenWithProgIDs' % ext, root=HKEY_CURRENT_USER)
-        except WindowsError as err:
-            if err.errno == winerror.ERROR_FILE_NOT_FOUND:
+        except OSError as err:
+            if err.winerror == winerror.ERROR_FILE_NOT_FOUND:
                 continue
         for prog_id in itervalues(k):
             if prog_id and prog_id not in seen_prog_ids:

@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2011, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -15,7 +15,7 @@ from PyQt5.Qt import (Qt, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QAppli
         QTabWidget, QIcon, QToolButton, QSplitter, QGroupBox, QSpacerItem, QInputDialog,
         QSizePolicy, QFrame, QSize, QKeySequence, QMenu, QShortcut, QDialog)
 
-from calibre.constants import isosx
+from calibre.constants import ismacos
 from calibre.gui2.dialogs.confirm_delete import confirm
 from calibre.ebooks.metadata import authors_to_string, string_to_authors
 from calibre.gui2 import error_dialog, gprefs, pixmap_to_data
@@ -158,7 +158,7 @@ class MetadataSingleDialogBase(QDialog):
               'change author sort from red to green.  There is a menu of '
               'functions available under this button. Click and hold '
               'on the button to see it.') + '</p>')
-        if isosx:
+        if ismacos:
             # Workaround for https://bugreports.qt-project.org/browse/QTBUG-41017
             class Menu(QMenu):
 
@@ -167,9 +167,9 @@ class MetadataSingleDialogBase(QDialog):
                     if ac is not None:
                         ac.trigger()
                     return QMenu.mouseReleaseEvent(self, ev)
-            b.m = m = Menu()
+            b.m = m = Menu(b)
         else:
-            b.m = m = QMenu()
+            b.m = m = QMenu(b)
         ac = m.addAction(QIcon(I('forward.png')), _('Set author sort from author'))
         ac2 = m.addAction(QIcon(I('back.png')), _('Set author from author sort'))
         ac3 = m.addAction(QIcon(I('user_profile.png')), _('Manage authors'))
@@ -256,7 +256,7 @@ class MetadataSingleDialogBase(QDialog):
         b.setIcon(QIcon(I('edit-paste.png')))
         b.clicked.connect(self.identifiers.paste_identifier)
         b.setPopupMode(b.DelayedPopup)
-        b.setMenu(QMenu())
+        b.setMenu(QMenu(b))
         self.update_paste_identifiers_menu()
 
         self.publisher = PublisherEdit(self)

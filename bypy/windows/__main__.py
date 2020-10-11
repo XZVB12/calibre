@@ -2,8 +2,8 @@
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
-from __future__ import absolute_import, division, print_function, unicode_literals
 
+import contextlib
 import errno
 import glob
 import os
@@ -19,7 +19,11 @@ from bypy.constants import (
     CL, LINK, MT, PREFIX, RC, SIGNTOOL, SRC as CALIBRE_DIR, SW, build_dir, is64bit,
     python_major_minor_version, worker_env
 )
-from bypy.utils import py_compile, run, walk
+from bypy.freeze import (
+    cleanup_site_packages, extract_extension_modules, freeze_python,
+    path_to_freeze_dir
+)
+from bypy.utils import mkdtemp, py_compile, run, walk
 
 iv = globals()['init_env']
 calibre_constants = iv['calibre_constants']
@@ -121,14 +125,7 @@ def initbase(env):
     os.mkdir(env.dist)
 
 
-def add_plugins(env, ext_dir):
-    printf('Adding plugins...')
-    tgt = env.dll_dir
-    for f in glob.glob(j(ext_dir, '*.pyd')):
-        shutil.copy2(f, tgt)
-
-
-def freeze(env, ext_dir):
+def freeze(env, ext_dir, incdir):
     shutil.copy2(j(env.src_root, 'LICENSE'), env.base)
 
     printf('Adding resources...')
@@ -141,11 +138,8 @@ def freeze(env, ext_dir):
 
     def copybin(x):
         shutil.copy2(x, env.dll_dir)
-        try:
+        with contextlib.suppress(FileNotFoundError):
             shutil.copy2(x + '.manifest', env.dll_dir)
-        except EnvironmentError as err:
-            if err.errno != errno.ENOENT:
-                raise
 
     bindir = os.path.join(PREFIX, 'bin')
     for x in ('pdftohtml', 'pdfinfo', 'pdftoppm', 'jpegtran-calibre', 'cjpeg-calibre', 'optipng-calibre', 'JXRDecApp-calibre'):
@@ -155,12 +149,15 @@ def freeze(env, ext_dir):
             copybin(f)
 
     copybin(os.path.join(env.python_base, 'python%s.dll' % env.py_ver.replace('.', '')))
-    for x in glob.glob(os.path.join(env.python_base, 'DLLs', '*')):  # python pyd modules
+    copybin(os.path.join(env.python_base, 'python%s.dll' % env.py_ver[0]))
+    for x in glob.glob(os.path.join(env.python_base, 'DLLs', '*.dll')):  # dlls needed by python
         copybin(x)
     for f in walk(os.path.join(env.python_base, 'Lib')):
-        if f.lower().endswith('.dll') and 'scintilla' not in f.lower():
+        q = f.lower()
+        if q.endswith('.dll') and 'scintilla' not in q and 'pyqtbuild' not in q:
             copybin(f)
-    add_plugins(env, ext_dir)
+    ext_map = extract_extension_modules(ext_dir, env.dll_dir)
+    ext_map.update(extract_extension_modules(j(env.python_base, 'DLLs'), env.dll_dir, move=False))
 
     printf('Adding Qt...')
     for x in QT_DLLS:
@@ -195,26 +192,7 @@ def freeze(env, ext_dir):
 
     shutil.copytree(r'%s\Lib' % env.python_base, env.lib_dir, ignore=ignore_lib)
     install_site_py(env)
-
-    # Fix win32com
     sp_dir = j(env.lib_dir, 'site-packages')
-    comext = j(sp_dir, 'win32comext')
-    shutil.copytree(j(comext, 'shell'), j(sp_dir, 'win32com', 'shell'))
-    shutil.rmtree(comext)
-
-    for pat in ('PyQt5\\uic\\port_v3', ):
-        x = glob.glob(j(env.lib_dir, 'site-packages', pat))[0]
-        shutil.rmtree(x)
-    pyqt = j(env.lib_dir, 'site-packages', 'PyQt5')
-    for x in {x for x in os.listdir(pyqt) if x.endswith('.pyd')}:
-        if x.partition('.')[0] not in PYQT_MODULES and x != 'sip.pyd':
-            os.remove(j(pyqt, x))
-    with open(j(pyqt, '__init__.py') , 'r+b') as f:
-        raw = f.read()
-        nraw = raw.replace(b'def find_qt():', b'def find_qt():\n    return # disabled for calibre')
-        if nraw == raw:
-            raise Exception('Failed to patch PyQt to disable dll directory manipulation')
-        f.seek(0), f.truncate(), f.write(nraw)
 
     printf('Adding calibre sources...')
     for x in glob.glob(j(CALIBRE_DIR, 'src', '*')):
@@ -224,24 +202,19 @@ def freeze(env, ext_dir):
         else:
             shutil.copy(x, j(sp_dir, b(x)))
 
-    for x in (r'calibre\manual', r'calibre\plugins', 'pythonwin'):
-        deld = j(sp_dir, x)
-        if os.path.exists(deld):
-            shutil.rmtree(deld)
-
-    for x in os.walk(j(sp_dir, 'calibre')):
-        for f in x[-1]:
-            if not f.endswith('.py'):
-                os.remove(j(x[0], f))
-
-    extract_pyd_modules(env, sp_dir)
+    ext_map.update(cleanup_site_packages(sp_dir))
+    for x in os.listdir(sp_dir):
+        os.rename(j(sp_dir, x), j(env.lib_dir, x))
+    os.rmdir(sp_dir)
+    printf('Extracting extension modules from', env.lib_dir, 'to', env.dll_dir)
+    ext_map.update(extract_extension_modules(env.lib_dir, env.dll_dir))
 
     printf('Byte-compiling all python modules...')
-    for x in ('test', 'lib2to3'):
-        x = j(env.lib_dir, x)
-        if os.path.exists(x):
-            shutil.rmtree(x)
     py_compile(env.lib_dir.replace(os.sep, '/'))
+    # from bypy.utils import run_shell
+    # run_shell(cwd=env.lib_dir)
+    freeze_python(env.lib_dir, env.dll_dir, incdir, ext_map, develop_mode_env_var='CALIBRE_DEVELOP_FROM')
+    shutil.rmtree(env.lib_dir)
 
 
 def embed_manifests(env):
@@ -258,68 +231,18 @@ def embed_manifests(env):
         os.remove(manifest)
 
 
-def extract_pyd_modules(env, site_packages_dir):
-    printf('\nExtracting .pyd modules from site-packages...')
-
-    def extract_pyd(path, root):
-        fullname = os.path.relpath(path, root).replace(os.sep, '/').replace('/', '.')
-        dest = os.path.join(env.dll_dir, fullname)
-        if os.path.exists(dest):
-            raise ValueError('Cannot extract %s into DLLs as it already exists' % fullname)
-        os.rename(path, dest)
-        bpy = dest[:-1]
-        if os.path.exists(bpy):
-            with open(bpy, 'rb') as f:
-                raw = f.read().strip().decode('utf-8')
-            if (not raw.startswith('def __bootstrap__') or not raw.endswith('__bootstrap__()')):
-                raise ValueError('The file %r has non bootstrap code' % bpy)
-        for ext in ('', 'c', 'o'):
-            try:
-                os.remove(bpy + ext)
-            except EnvironmentError as err:
-                if err.errno != errno.ENOENT:
-                    raise
-
-    def find_pyds(base):
-        for dirpath, dirnames, filenames in os.walk(base):
-            for fname in filenames:
-                if fname.lower().endswith('.pyd'):
-                    yield os.path.join(dirpath, fname)
-
-    def process_root(root, base=None):
-        for path in find_pyds(root):
-            extract_pyd(path, base or root)
-
-    def absp(x):
-        return os.path.normcase(os.path.abspath(os.path.join(site_packages_dir, x)))
-
-    roots = set()
-    for pth in glob.glob(os.path.join(site_packages_dir, '*.pth')):
-        for line in open(pth).readlines():
-            line = line.strip()
-            if line and not line.startswith('#') and os.path.exists(os.path.join(site_packages_dir, line)):
-                roots.add(absp(line))
-
-    for x in os.listdir(site_packages_dir):
-        x = absp(x)
-        if x in roots:
-            process_root(x)
-        elif os.path.isdir(x):
-            process_root(x, site_packages_dir)
-        elif x.lower().endswith('.pyd'):
-            extract_pyd(x, site_packages_dir)
-
-
 def embed_resources(env, module, desc=None, extra_data=None, product_description=None):
     icon_base = j(env.src_root, 'icons')
-    icon_map = {'calibre': 'library', 'ebook-viewer': 'viewer', 'ebook-edit': 'ebook-edit',
-                'lrfviewer': 'viewer', 'calibre-portable': 'library'}
+    icon_map = {
+        'calibre': 'library', 'ebook-viewer': 'viewer', 'ebook-edit': 'ebook-edit',
+        'lrfviewer': 'viewer',
+    }
     file_type = 'DLL' if module.endswith('.dll') else 'APP'
     with open(env.rc_template, 'rb') as f:
         template = f.read().decode('utf-8')
     bname = b(module)
     internal_name = os.path.splitext(bname)[0]
-    icon = icon_map.get(internal_name, 'command-prompt')
+    icon = icon_map.get(internal_name.replace('-portable', ''), 'command-prompt')
     if internal_name.startswith('calibre-portable-'):
         icon = 'install'
     icon = j(icon_base, icon + '.ico')
@@ -414,20 +337,25 @@ def build_portable(env):
     obj = j(env.obj_dir, b(src) + '.obj')
     cflags = '/c /EHsc /MT /W3 /Ox /nologo /D_UNICODE /DUNICODE'.split()
 
-    printf('Compiling', obj)
-    cmd = [CL] + cflags + ['/Fo' + obj, '/Tc' + src]
-    run_compiler(env, *cmd)
-
-    exe = j(base, 'calibre-portable.exe')
-    printf('Linking', exe)
-    cmd = [LINK] + [
-        '/INCREMENTAL:NO', '/MACHINE:' + machine,
-        '/LIBPATH:' + env.obj_dir, '/SUBSYSTEM:WINDOWS',
-        '/RELEASE',
-        '/ENTRY:wWinMainCRTStartup',
-        '/OUT:' + exe, embed_resources(env, exe, desc='Calibre Portable', product_description='Calibre Portable'),
-        obj, 'User32.lib']
-    run(*cmd)
+    for exe_name in ('calibre.exe', 'ebook-viewer.exe', 'ebook-edit.exe'):
+        exe = j(base, exe_name.replace('.exe', '-portable.exe'))
+        printf('Compiling', exe)
+        cmd = [CL] + cflags + ['/DEXE_NAME="%s"' % exe_name, '/Fo' + obj, '/Tc' + src]
+        run_compiler(env, *cmd)
+        printf('Linking', exe)
+        desc = {
+            'calibre.exe': 'Calibre Portable',
+            'ebook-viewer.exe': 'Calibre Portable Viewer',
+            'ebook-edit.exe': 'Calibre Portable Editor'
+        }[exe_name]
+        cmd = [LINK] + [
+            '/INCREMENTAL:NO', '/MACHINE:' + machine,
+            '/LIBPATH:' + env.obj_dir, '/SUBSYSTEM:WINDOWS',
+            '/RELEASE',
+            '/ENTRY:wWinMainCRTStartup',
+            '/OUT:' + exe, embed_resources(env, exe, desc=desc, product_description=desc),
+            obj, 'User32.lib']
+        run(*cmd)
 
     printf('Creating portable installer')
     shutil.copytree(env.base, j(base, 'Calibre'))
@@ -522,7 +450,7 @@ def build_utils(env):
     build(j(base, 'eject.c'), 'calibre-eject.exe')
 
 
-def build_launchers(env, debug=False):
+def build_launchers(env, incdir, debug=False):
     if not os.path.exists(env.obj_dir):
         os.makedirs(env.obj_dir)
     dflags = (['/Zi'] if debug else [])
@@ -532,6 +460,7 @@ def build_launchers(env, debug=False):
     objects = [j(env.obj_dir, b(x) + '.obj') for x in sources]
     cflags = '/c /EHsc /W3 /Ox /nologo /D_UNICODE'.split()
     cflags += ['/DPYDLL="python%s.dll"' % env.py_ver.replace('.', ''), '/I%s/include' % env.python_base]
+    cflags += [f'/I{path_to_freeze_dir()}', f'/I{incdir}']
     for src, obj in zip(sources, objects):
         cmd = [CL] + cflags + dflags + ['/MD', '/Fo' + obj, '/Tc' + src]
         run_compiler(env, *cmd)
@@ -559,8 +488,8 @@ def build_launchers(env, debug=False):
             if typ == 'gui':
                 cflags += ['/DGUI_APP=']
 
-            cflags += ['/DMODULE="%s"' % mod, '/DBASENAME="%s"' % bname,
-                       '/DFUNCTION="%s"' % func]
+            cflags += ['/DMODULE=L"%s"' % mod, '/DBASENAME=L"%s"' % bname,
+                       '/DFUNCTION=L"%s"' % func]
             dest = j(env.obj_dir, bname + '.obj')
             printf('Compiling', bname)
             cmd = [CL] + cflags + dflags + ['/Tc' + src, '/Fo' + dest]
@@ -580,73 +509,6 @@ def build_launchers(env, debug=False):
                 'user32.lib', 'kernel32.lib',
                 '/OUT:' + exe] + u32 + dlflags + [embed_resources(env, exe), dest, lib]
             run(*cmd)
-
-
-def add_to_zipfile(zf, name, base, zf_names):
-    abspath = j(base, name)
-    name = name.replace(os.sep, '/')
-    if name in zf_names:
-        raise ValueError('Already added %r to zipfile [%r]' % (name, abspath))
-    zinfo = zipfile.ZipInfo(filename=name, date_time=(1980, 1, 1, 0, 0, 0))
-
-    if os.path.isdir(abspath):
-        if not os.listdir(abspath):
-            return
-        zinfo.external_attr = 0o700 << 16
-        zf.writestr(zinfo, '')
-        for x in os.listdir(abspath):
-            add_to_zipfile(zf, name + os.sep + x, base, zf_names)
-    else:
-        ext = os.path.splitext(name)[1].lower()
-        if ext in ('.dll',):
-            raise ValueError('Cannot add %r to zipfile' % abspath)
-        zinfo.external_attr = 0o600 << 16
-        if ext in ('.py', '.pyc', '.pyo'):
-            with open(abspath, 'rb') as f:
-                zf.writestr(zinfo, f.read())
-
-    zf_names.add(name)
-
-
-def archive_lib_dir(env):
-    printf('Putting all python code into a zip file for performance')
-    zf_names = set()
-    with zipfile.ZipFile(env.pylib, 'w', zipfile.ZIP_STORED) as zf:
-        # Add everything in Lib except site-packages to the zip file
-        for x in os.listdir(env.lib_dir):
-            if x == 'site-packages':
-                continue
-            add_to_zipfile(zf, x, env.lib_dir, zf_names)
-
-        sp = j(env.lib_dir, 'site-packages')
-        # Special handling for pywin32
-        handled = {'pywin32.pth', 'win32'}
-        base = j(sp, 'win32', 'lib')
-        for x in os.listdir(base):
-            if os.path.splitext(x)[1] not in ('.exe',):
-                add_to_zipfile(zf, x, base, zf_names)
-        base = os.path.dirname(base)
-        for x in os.listdir(base):
-            if not os.path.isdir(j(base, x)):
-                if os.path.splitext(x)[1] not in ('.exe',):
-                    add_to_zipfile(zf, x, base, zf_names)
-
-        # We dont want the site.py (if any) from site-packages
-        handled.add('site.pyo')
-
-        # The rest of site-packages
-        for x in os.listdir(sp):
-            if x in handled or x.endswith('.egg-info'):
-                continue
-            absp = j(sp, x)
-            if os.path.isdir(absp):
-                if not os.listdir(absp):
-                    continue
-                add_to_zipfile(zf, x, sp, zf_names)
-            else:
-                add_to_zipfile(zf, x, sp, zf_names)
-
-    shutil.rmtree(env.lib_dir)
 
 
 def copy_crt_and_d3d(env):
@@ -707,13 +569,13 @@ def main():
     args = globals()['args']
     run_tests = iv['run_tests']
     env = Env(build_dir())
+    incdir = mkdtemp('include')
     initbase(env)
-    build_launchers(env)
+    freeze(env, ext_dir, incdir)
+    build_launchers(env, incdir)
     build_utils(env)
-    freeze(env, ext_dir)
     embed_manifests(env)
     copy_crt_and_d3d(env)
-    archive_lib_dir(env)
     if not args.skip_tests:
         run_tests(os.path.join(env.base, 'calibre-debug.exe'), env.base)
     if args.sign_installers:

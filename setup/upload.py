@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import print_function
+
 __license__   = 'GPL v3'
 __copyright__ = '2009, Kovid Goyal <kovid@kovidgoyal.net>'
 __docformat__ = 'restructuredtext en'
@@ -23,8 +23,10 @@ DOWNLOADS = '/srv/main/downloads'
 HTML2LRF = "calibre/ebooks/lrf/html/demo"
 TXT2LRF = "src/calibre/ebooks/lrf/txt/demo"
 STAGING_HOST = 'download.calibre-ebook.com'
-STAGING_USER = 'root'
+BACKUP_HOST = 'code.calibre-ebook.com'
+STAGING_USER = BACKUP_USER = 'root'
 STAGING_DIR = '/root/staging'
+BACKUP_DIR = '/binaries'
 
 
 def installers(include_source=True):
@@ -71,7 +73,7 @@ def upload_signatures():
                 raw = f.read()
             fingerprint = hashlib.sha512(raw).hexdigest()
             sha512 = os.path.join(tdir, os.path.basename(installer + '.sha512'))
-            with open(sha512, 'wb') as f:
+            with open(sha512, 'w') as f:
                 f.write(fingerprint)
             scp.append(sha512)
         for srv in 'code main'.split():
@@ -108,7 +110,7 @@ class ReUpload(Command):  # {{{
 # Data {{{
 def get_github_data():
     with open(os.environ['PENV'] + '/github-token', 'rb') as f:
-        un, pw = f.read().strip().split(':')
+        un, pw = f.read().decode('utf-8').strip().split(':')
     return {'username': un, 'password': pw}
 
 
@@ -123,8 +125,18 @@ def get_fosshub_data():
 
 def send_data(loc):
     subprocess.check_call([
-        'rsync', '--inplace', '--delete', '-r', '-zz', '-h', '--progress', '-e',
+        'rsync', '--inplace', '--delete', '-r', '-zz', '-h', '--info=progress2', '-e',
         'ssh -x', loc + '/', '%s@%s:%s' % (STAGING_USER, STAGING_HOST, STAGING_DIR)
+    ])
+
+
+def send_to_backup(loc):
+    host = f'{BACKUP_USER}@{BACKUP_HOST}'
+    dest = f'{BACKUP_DIR}/{__version__}'
+    subprocess.check_call(['ssh', '-x', host, 'mkdir', '-p', dest])
+    subprocess.check_call([
+        'rsync', '--inplace', '--delete', '-r', '-zz', '-h', '--info=progress2', '-e',
+        'ssh -x', loc + '/', f'{host}:{dest}/'
     ])
 
 
@@ -206,8 +218,10 @@ def upload_to_fosshub():
         'publish': True,
         'isOldRelease': False,
     }
-    # print(json.dumps(jq, indent=2))
-    if not request('projects/{}/releases/'.format(project_id), data=json.dumps(jq)):
+    data = json.dumps(jq)
+    # print(data)
+    data = data.encode('utf-8')
+    if not request('projects/{}/releases/'.format(project_id), data=data):
         raise SystemExit('Failed to queue publish job with fosshub')
 
 
@@ -271,13 +285,22 @@ class UploadInstallers(Command):  # {{{
 
         with open(os.path.join(tdir, 'fmap'), 'wb') as fo:
             for f, desc in iteritems(files):
-                fo.write('%s: %s\n' % (f, desc))
+                fo.write(('%s: %s\n' % (f, desc)).encode('utf-8'))
 
         while True:
             try:
                 send_data(tdir)
             except:
                 print('\nUpload to staging failed, retrying in a minute')
+                time.sleep(60)
+            else:
+                break
+
+        while True:
+            try:
+                send_to_backup(tdir)
+            except:
+                print('\nUpload to backup failed, retrying in a minute')
                 time.sleep(60)
             else:
                 break

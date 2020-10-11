@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2009, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -566,7 +566,7 @@ class SavedSearchBoxMixin(object):  # {{{
         self.save_search_button.setToolTip('<p>' +
          _("Save current search under the name shown in the box. "
            "Press and hold for a pop-up options menu.") + '</p>')
-        self.save_search_button.setMenu(QMenu())
+        self.save_search_button.setMenu(QMenu(self.save_search_button))
         self.save_search_button.menu().addAction(
                             QIcon(I('plus.png')),
                             _('Create Saved search'),
@@ -575,7 +575,7 @@ class SavedSearchBoxMixin(object):  # {{{
             QIcon(I('trash.png')), _('Delete Saved search'), self.saved_search.delete_current_search)
         self.save_search_button.menu().addAction(
             QIcon(I('search.png')), _('Manage Saved searches'), partial(self.do_saved_search_edit, None))
-        self.add_saved_search_button.setMenu(QMenu())
+        self.add_saved_search_button.setMenu(QMenu(self.add_saved_search_button))
         self.add_saved_search_button.menu().aboutToShow.connect(self.populate_add_saved_search_menu)
 
     def populate_add_saved_search_menu(self):

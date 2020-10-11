@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__ = 'GPL 3'
 __copyright__ = '2012, Kovid Goyal <kovid at kovidgoyal.net>'
@@ -196,7 +196,8 @@ class PDFOutput(OutputFormatPlugin):
         if (oeb.metadata.cover and unicode_type(oeb.metadata.cover[0]) in oeb.manifest.ids):
             cover_id = unicode_type(oeb.metadata.cover[0])
             item = oeb.manifest.ids[cover_id]
-            self.cover_data = item.data
+            if isinstance(item.data, bytes):
+                self.cover_data = item.data
 
     def process_fonts(self):
         ''' Make sure all fonts are embeddable '''

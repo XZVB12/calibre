@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 __license__   = 'GPL v3'
 __docformat__ = 'restructuredtext en'
@@ -307,7 +306,7 @@ class Bookmark():  # {{{
             except:
                 pass
         elif self.bookmark_extension == 'pdr':
-            from calibre import plugins
+            from calibre.constants import plugins
             try:
                 self.book_length = plugins['pdfreflow'][0].get_numpages(open(book_fs).read())
             except :

@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import absolute_import, division, print_function, unicode_literals
+
 
 __license__   = 'GPL v3'
 __copyright__ = '2011, Kovid Goyal <kovid@kovidgoyal.net>'
@@ -30,7 +30,6 @@ from calibre.utils.date import (
     local_tz, qt_to_dt, as_local_time, UNDEFINED_DATE, is_date_undefined,
     utcfromtimestamp, parse_only_date, internal_iso_format_string)
 from calibre import strftime
-from calibre.constants import ispy3
 from calibre.ebooks import BOOK_EXTENSIONS
 from calibre.customize.ui import run_plugins_on_import
 from calibre.gui2.comments_editor import Editor
@@ -53,7 +52,7 @@ def save_dialog(parent, title, msg, det_msg=''):
 
 
 def clean_text(x):
-    return re.sub(r'\s', ' ', x.strip(), flags=re.ASCII if ispy3 else 0)
+    return re.sub(r'\s', ' ', x.strip(), flags=re.ASCII)
 
 
 '''
@@ -1114,7 +1113,7 @@ class Cover(ImageView):  # {{{
         b.setToolTip(_(
             'Automatically detect and remove extra space at the cover\'s edges.\n'
             'Pressing it repeatedly can sometimes remove stubborn borders.'))
-        b.m = m = QMenu()
+        b.m = m = QMenu(b)
         b.setPopupMode(QToolButton.InstantPopup)
         m.addAction(QIcon(I('trim.png')), _('Automatically trim borders'), self.trim_cover)
         m.addSeparator()
@@ -1125,7 +1124,7 @@ class Cover(ImageView):  # {{{
 
         self.download_cover_button = CB(_('Download co&ver'), 'arrow-down.png', self.download_cover)
         self.generate_cover_button = b = CB(_('&Generate cover'), 'default_cover.png', self.generate_cover)
-        b.m = m = QMenu()
+        b.m = m = QMenu(b)
         b.setMenu(m)
         m.addAction(QIcon(I('config.png')), _('Customize the styles and colors of the generated cover'), self.custom_cover)
         b.setPopupMode(b.DelayedPopup)
