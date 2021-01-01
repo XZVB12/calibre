@@ -9,7 +9,7 @@ __docformat__ = 'restructuredtext en'
 
 from PyQt5.Qt import (
     QToolButton, QSize, QPropertyAnimation, Qt, QMetaObject, pyqtProperty, QSizePolicy,
-    QWidget, QIcon, QPainter, QStyleOptionToolButton)
+    QWidget, QIcon, QPainter, QStyleOptionToolButton, QStyle, QAbstractAnimation)
 
 from calibre.gui2 import config
 
@@ -28,7 +28,7 @@ class ThrobbingButton(QToolButton):
         QToolButton.__init__(self, *args)
         # vertically size policy must be expanding for it to align inside a
         # toolbar
-        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self._icon_size = -1
         QToolButton.setIcon(self, QIcon(I('donate.png')))
         self.setText('\xa0')
@@ -36,7 +36,7 @@ class ThrobbingButton(QToolButton):
         self.animation.setDuration(60/72.*1000)
         self.animation.setLoopCount(4)
         self.animation.valueChanged.connect(self.value_changed)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.animation.finished.connect(self.animation_finished)
 
     def animation_finished(self):
@@ -54,13 +54,13 @@ class ThrobbingButton(QToolButton):
     def start_animation(self):
         if config['disable_animations']:
             return
-        if self.animation.state() != self.animation.Stopped or not self.isVisible():
+        if self.animation.state() != QAbstractAnimation.State.Stopped or not self.isVisible():
             return
         size = self.iconSize().width()
         smaller = int(0.7 * size)
         self.animation.setStartValue(smaller)
         self.animation.setEndValue(size)
-        QMetaObject.invokeMethod(self.animation, 'start', Qt.QueuedConnection)
+        QMetaObject.invokeMethod(self.animation, 'start', Qt.ConnectionType.QueuedConnection)
 
     def stop_animation(self):
         self.animation.stop()
@@ -73,7 +73,7 @@ class ThrobbingButton(QToolButton):
         self.initStyleOption(opt)
         s = self.style()
         opt.iconSize = QSize(size, size)
-        s.drawComplexControl(s.CC_ToolButton, opt, p, self)
+        s.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, opt, p, self)
 
 
 if __name__ == '__main__':

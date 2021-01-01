@@ -13,13 +13,14 @@ import textwrap
 import weakref
 from datetime import date, datetime
 from PyQt5.Qt import (
-    QAction, QApplication, QDateTime, QDialog, QDialogButtonBox, QDoubleSpinBox,
+    QAction, QApplication, QDateTime, QDialog, QDialogButtonBox, QDoubleSpinBox, QAbstractItemView,
     QGridLayout, QIcon, QKeySequence, QLabel, QLineEdit, QListWidgetItem, QMenu,
-    QMessageBox, QPixmap, QPlainTextEdit, QSize, QSizePolicy, Qt, QToolButton,
+    QMessageBox, QPixmap, QPlainTextEdit, QSize, QSizePolicy, Qt, QToolButton, QComboBox,
     QUndoCommand, QUndoStack, QUrl, QVBoxLayout, QWidget, pyqtSignal
 )
 
 from calibre import strftime
+from calibre.constants import iswindows
 from calibre.customize.ui import run_plugins_on_import
 from calibre.db import SPOOL_SIZE
 from calibre.ebooks import BOOK_EXTENSIONS
@@ -56,7 +57,7 @@ def save_dialog(parent, title, msg, det_msg=''):
     d = QMessageBox(parent)
     d.setWindowTitle(title)
     d.setText(msg)
-    d.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+    d.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
     return d.exec_()
 
 
@@ -156,10 +157,10 @@ def make_undoable(spinbox):
             self.undo, self.redo = self.undo_stack.undo, self.undo_stack.redo
 
         def keyPressEvent(self, ev):
-            if ev == QKeySequence.Undo:
+            if ev == QKeySequence.StandardKey.Undo:
                 self.undo()
                 return ev.accept()
-            if ev == QKeySequence.Redo:
+            if ev == QKeySequence.StandardKey.Redo:
                 self.redo()
                 return ev.accept()
             return spinbox.keyPressEvent(self, ev)
@@ -167,12 +168,12 @@ def make_undoable(spinbox):
         def contextMenuEvent(self, ev):
             m = QMenu(self)
             if hasattr(self, 'setDateTime'):
-                m.addAction(_('Set date to undefined') + '\t' + QKeySequence(Qt.Key_Minus).toString(QKeySequence.NativeText),
+                m.addAction(_('Set date to undefined') + '\t' + QKeySequence(Qt.Key.Key_Minus).toString(QKeySequence.SequenceFormat.NativeText),
                             lambda : self.setDateTime(self.minimumDateTime()))
-                m.addAction(_('Set date to today') + '\t' + QKeySequence(Qt.Key_Equal).toString(QKeySequence.NativeText),
+                m.addAction(_('Set date to today') + '\t' + QKeySequence(Qt.Key.Key_Equal).toString(QKeySequence.SequenceFormat.NativeText),
                             lambda : self.setDateTime(QDateTime.currentDateTime()))
-            m.addAction(_('&Undo') + access_key(QKeySequence.Undo), self.undo).setEnabled(self.undo_stack.canUndo())
-            m.addAction(_('&Redo') + access_key(QKeySequence.Redo), self.redo).setEnabled(self.undo_stack.canRedo())
+            m.addAction(_('&Undo') + access_key(QKeySequence.StandardKey.Undo), self.undo).setEnabled(self.undo_stack.canUndo())
+            m.addAction(_('&Redo') + access_key(QKeySequence.StandardKey.Redo), self.redo).setEnabled(self.undo_stack.canRedo())
             m.addSeparator()
             populate_standard_spinbox_context_menu(self, m)
             m.popup(ev.globalPos())
@@ -270,7 +271,7 @@ class TitleSortEdit(TitleEdit, ToMetadataMixin):
             'No action is required if this is what you want.'))
         self.tooltips = (ok_tooltip, bad_tooltip)
 
-        self.title_edit.textChanged.connect(self.update_state_and_val, type=Qt.QueuedConnection)
+        self.title_edit.textChanged.connect(self.update_state_and_val, type=Qt.ConnectionType.QueuedConnection)
         self.textChanged.connect(self.update_state)
 
         self.autogen_button = autogen_button
@@ -343,7 +344,7 @@ class AuthorsEdit(EditWithComplete, ToMetadataMixin):
         self.setToolTip(self.TOOLTIP)
         self.setWhatsThis(self.TOOLTIP)
         self.setEditable(True)
-        self.setSizeAdjustPolicy(self.AdjustToMinimumContentsLengthWithIcon)
+        self.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.manage_authors_signal = manage_authors
         manage_authors.triggered.connect(self.manage_authors)
         self.lineEdit().createStandardContextMenu = self.createStandardContextMenu
@@ -360,7 +361,7 @@ class AuthorsEdit(EditWithComplete, ToMetadataMixin):
         current_authors = self.current_val
         from calibre.gui2.dialogs.authors_edit import AuthorsEdit
         d = AuthorsEdit(all_authors, current_authors, self)
-        if d.exec_() == d.Accepted:
+        if d.exec_() == QDialog.DialogCode.Accepted:
             self.set_value(d.authors)
 
     def manage_authors(self):
@@ -369,9 +370,9 @@ class AuthorsEdit(EditWithComplete, ToMetadataMixin):
                     _('You have changed the authors for this book. You must save '
                       'these changes before you can use Manage authors. Do you '
                       'want to save these changes?'))
-            if d == QMessageBox.Cancel:
+            if d == QMessageBox.StandardButton.Cancel:
                 return
-            if d == QMessageBox.Yes:
+            if d == QMessageBox.StandardButton.Yes:
                 self.commit(self.db, self.id_)
                 self.db.commit()
                 self.original_val = self.current_val
@@ -465,7 +466,7 @@ class AuthorSortEdit(EnLineEdit, ToMetadataMixin):
             'No action is required if this is what you want.'))
         self.tooltips = (ok_tooltip, bad_tooltip)
 
-        self.authors_edit.editTextChanged.connect(self.update_state_and_val, type=Qt.QueuedConnection)
+        self.authors_edit.editTextChanged.connect(self.update_state_and_val, type=Qt.ConnectionType.QueuedConnection)
         self.textChanged.connect(self.update_state)
         self.textChanged.connect(self.data_changed)
 
@@ -600,7 +601,7 @@ class SeriesEdit(EditWithComplete, ToMetadataMixin):
         self.set_separator(None)
         self.dialog = parent
         self.setSizeAdjustPolicy(
-                self.AdjustToMinimumContentsLengthWithIcon)
+                QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.setToolTip(self.TOOLTIP)
         self.setWhatsThis(self.TOOLTIP)
         self.setEditable(True)
@@ -722,7 +723,7 @@ class BuddyLabel(QLabel):  # {{{
     def __init__(self, buddy):
         QLabel.__init__(self, buddy.LABEL)
         self.setBuddy(buddy)
-        self.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
 # }}}
 
 # Formats {{{
@@ -736,7 +737,7 @@ class Format(QListWidgetItem):
         self.size = float(size)/(1024*1024)
         text = '%s (%.2f MB)'%(self.ext.upper(), self.size)
         QListWidgetItem.__init__(self, file_icon_provider().icon_from_ext(ext),
-                                 text, parent, QListWidgetItem.UserType)
+                                 text, parent, QListWidgetItem.ItemType.UserType)
         if timestamp is not None:
             ts = timestamp.astimezone(local_tz)
             t = strftime('%a, %d %b %Y [%H:%M:%S]', ts.timetuple())
@@ -792,7 +793,7 @@ class FormatList(_FormatList):
 
     def __init__(self, parent):
         _FormatList.__init__(self, parent)
-        self.setContextMenuPolicy(Qt.DefaultContextMenu)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.DefaultContextMenu)
 
     def contextMenuEvent(self, event):
         item = self.itemFromIndex(self.currentIndex())
@@ -804,12 +805,12 @@ class FormatList(_FormatList):
 
             if item:
                 action = ViewAction(item, cm)
-                action.view_fmt.connect(self.view_fmt, type=Qt.QueuedConnection)
+                action.view_fmt.connect(self.view_fmt, type=Qt.ConnectionType.QueuedConnection)
                 cm.addAction(action)
 
                 if item.ext.upper() in EDIT_SUPPORTED:
                     action = EditAction(item, cm)
-                    action.edit_fmt.connect(self.edit_fmt, type=Qt.QueuedConnection)
+                    action.edit_fmt.connect(self.edit_fmt, type=Qt.ConnectionType.QueuedConnection)
                     cm.addAction(action)
 
             if item and originals:
@@ -886,7 +887,7 @@ class FormatsManager(QWidget):
         self.formats.edit_fmt.connect(self.edit_format)
         self.formats.delete_format.connect(self.remove_format)
         self.formats.itemDoubleClicked.connect(self.show_format)
-        self.formats.setDragDropMode(self.formats.DropOnly)
+        self.formats.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
         self.formats.setIconSize(QSize(32, 32))
         self.formats.setMaximumWidth(200)
 
@@ -973,6 +974,11 @@ class FormatsManager(QWidget):
         bad_perms = []
         for _file in paths:
             _file = make_long_path_useable(os.path.abspath(_file))
+            if iswindows:
+                from calibre.gui2.add import resolve_windows_links
+                x = list(resolve_windows_links([_file], hwnd=int(self.effectiveWinId())))
+                if x:
+                    _file = x[0]
             if not os.access(_file, os.R_OK):
                 bad_perms.append(_file)
                 continue
@@ -1094,7 +1100,7 @@ class Cover(ImageView):  # {{{
         self.dialog = parent
         self._cdata = None
         self.draw_border = False
-        self.cdata_before_trim = None
+        self.cdata_before_trim = self.cdata_before_generate = None
         self.cover_changed.connect(self.set_pixmap_from_data)
 
         class CB(RightClickButton):
@@ -1104,8 +1110,8 @@ class Cover(ImageView):  # {{{
                 self.setText(text)
                 if icon is not None:
                     self.setIcon(QIcon(I(icon)))
-                self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-                self.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+                self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Preferred)
+                self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
                 if action is not None:
                     self.clicked.connect(action)
 
@@ -1115,7 +1121,7 @@ class Cover(ImageView):  # {{{
             'Automatically detect and remove extra space at the cover\'s edges.\n'
             'Pressing it repeatedly can sometimes remove stubborn borders.'))
         b.m = m = QMenu(b)
-        b.setPopupMode(QToolButton.InstantPopup)
+        b.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         m.addAction(QIcon(I('trim.png')), _('Automatically trim borders'), self.trim_cover)
         m.addSeparator()
         m.addAction(_('Trim borders manually'), self.manual_trim_cover)
@@ -1128,19 +1134,25 @@ class Cover(ImageView):  # {{{
         b.m = m = QMenu(b)
         b.setMenu(m)
         m.addAction(QIcon(I('config.png')), _('Customize the styles and colors of the generated cover'), self.custom_cover)
-        b.setPopupMode(b.DelayedPopup)
+        m.addAction(QIcon(I('edit-undo.png')), _('Undo last Generate cover'), self.undo_generate)
+        b.setPopupMode(QToolButton.ToolButtonPopupMode.DelayedPopup)
         self.buttons = [self.select_cover_button, self.remove_cover_button,
                 self.trim_cover_button, self.download_cover_button,
                 self.generate_cover_button]
 
         self.frame_size = (300, 400)
-        self.setSizePolicy(QSizePolicy(QSizePolicy.Preferred,
-            QSizePolicy.Preferred))
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Preferred))
 
     def undo_trim(self):
         if self.cdata_before_trim:
             self.current_val = self.cdata_before_trim
             self.cdata_before_trim = None
+
+    def undo_generate(self):
+        if self.cdata_before_generate:
+            self.current_val = self.cdata_before_generate
+            self.cdata_before_generate = None
 
     def frame_resized(self, ev):
         sz = ev.size()
@@ -1201,13 +1213,14 @@ class Cover(ImageView):  # {{{
         cdata = self.current_val
         from calibre.gui2.dialogs.trim_image import TrimImage
         d = TrimImage(cdata, parent=self)
-        if d.exec_() == d.Accepted and d.image_data is not None:
+        if d.exec_() == QDialog.DialogCode.Accepted and d.image_data is not None:
             self.current_val = d.image_data
             self.cdata_before_trim = cdata
 
     def generate_cover(self, *args):
         from calibre.ebooks.covers import generate_cover
         mi = self.dialog.to_book_metadata()
+        self.cdata_before_generate = self.current_val
         self.current_val = generate_cover(mi)
 
     def custom_cover(self):
@@ -1215,7 +1228,7 @@ class Cover(ImageView):  # {{{
         from calibre.gui2.covers import CoverSettingsDialog
         mi = self.dialog.to_book_metadata()
         d = CoverSettingsDialog(mi=mi, parent=self)
-        if d.exec_() == d.Accepted:
+        if d.exec_() == QDialog.DialogCode.Accepted:
             self.current_val = generate_cover(mi, prefs=d.prefs_for_rendering)
 
     def set_pixmap_from_data(self, data):
@@ -1401,16 +1414,16 @@ class TagsEdit(EditWithComplete, ToMetadataMixin):  # {{{
                     _('You have changed the tags. In order to use the tags'
                        ' editor, you must either discard or apply these '
                        'changes. Apply changes?'))
-            if d == QMessageBox.Cancel:
+            if d == QMessageBox.StandardButton.Cancel:
                 return
-            if d == QMessageBox.Yes:
+            if d == QMessageBox.StandardButton.Yes:
                 self.commit(db, id_)
                 db.commit()
                 self.original_val = self.current_val
             else:
                 self.current_val = self.original_val
         d = TagEditor(self, db, id_)
-        if d.exec_() == TagEditor.Accepted:
+        if d.exec_() == QDialog.DialogCode.Accepted:
             self.current_val = d.tags
             self.update_items_cache(db.new_api.all_field_names('tags'))
 
@@ -1421,7 +1434,7 @@ class TagsEdit(EditWithComplete, ToMetadataMixin):  # {{{
         return True
 
     def keyPressEvent(self, ev):
-        if ev.key() == Qt.Key_F2:
+        if ev.key() == Qt.Key.Key_F2:
             self.tag_editor_requested.emit()
             ev.accept()
             return
@@ -1546,7 +1559,7 @@ class IdentifiersEdit(QLineEdit, ToMetadataMixin):
 
     def edit_identifiers(self):
         d = Identifiers(self.current_val, self)
-        if d.exec_() == d.Accepted:
+        if d.exec_() == QDialog.DialogCode.Accepted:
             self.current_val = d.get_identifiers()
 
     @property
@@ -1710,7 +1723,7 @@ class ISBNDialog(QDialog):  # {{{
         w.selectAll()
         w.textChanged.connect(self.checkText)
         l.addWidget(w, 1, 1, 1, 1)
-        w = QDialogButtonBox(QDialogButtonBox.Ok|QDialogButtonBox.Cancel)
+        w = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         l.addWidget(w, 2, 0, 1, 2)
         w.accepted.connect(self.accept)
         w.rejected.connect(self.reject)
@@ -1757,7 +1770,7 @@ class PublisherEdit(EditWithComplete, ToMetadataMixin):  # {{{
         self.currentTextChanged.connect(self.data_changed)
         self.set_separator(None)
         self.setSizeAdjustPolicy(
-                self.AdjustToMinimumContentsLengthWithIcon)
+                QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.books_to_refresh = set()
         self.clear_button = QToolButton(parent)
         self.clear_button.setIcon(QIcon(I('trash.png')))
@@ -1848,9 +1861,9 @@ class DateEdit(make_undoable(DateTimeEdit), ToMetadataMixin):
         return o != c
 
     def keyPressEvent(self, ev):
-        if ev.key() == Qt.Key_Up and is_date_undefined(self.current_val):
+        if ev.key() == Qt.Key.Key_Up and is_date_undefined(self.current_val):
             self.setDateTime(QDateTime.currentDateTime())
-        elif ev.key() == Qt.Key_Tab and is_date_undefined(self.current_val):
+        elif ev.key() == Qt.Key.Key_Tab and is_date_undefined(self.current_val):
             ev.ignore()
         else:
             return super(DateEdit, self).keyPressEvent(ev)

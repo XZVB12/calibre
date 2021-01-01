@@ -44,8 +44,8 @@ def current_dateop(cb):
 
 def create_msg_label(self):
     self.frame = f = QFrame(self)
-    f.setFrameShape(QFrame.StyledPanel)
-    f.setFrameShadow(QFrame.Raised)
+    f.setFrameShape(QFrame.Shape.StyledPanel)
+    f.setFrameShadow(QFrame.Shadow.Raised)
     f.l = l = QVBoxLayout(f)
     f.um_label = la = QLabel(_(
         "<p>You can also perform other kinds of advanced searches, for example checking"
@@ -74,8 +74,8 @@ def create_match_kind(self):
 
 
 def create_button_box(self):
-    self.bb = bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-    self.clear_button = bb.addButton(_('&Clear'), QDialogButtonBox.ResetRole)
+    self.bb = bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+    self.clear_button = bb.addButton(_('&Clear'), QDialogButtonBox.ButtonRole.ResetRole)
     self.clear_button.clicked.connect(self.clear_button_pushed)
     bb.accepted.connect(self.accept)
     bb.rejected.connect(self.reject)
@@ -92,19 +92,21 @@ def create_adv_tab(self):
     l.addWidget(w.g1), l.addWidget(w.g2), l.addStretch(10)
 
     w.g1.l = l = QFormLayout(w.g1)
-    l.setFieldGrowthPolicy(l.AllNonFixedFieldsGrow)
+    l.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
     for key, text in (
             ('all', _("A&ll these words:")),
             ('phrase', _("&This exact phrase:")),
             ('any', _("O&ne or more of these words:")),
     ):
         le = QLineEdit(w)
+        le.setClearButtonEnabled(True)
         setattr(self, key, le)
         l.addRow(text, le)
 
     w.g2.l = l = QFormLayout(w.g2)
-    l.setFieldGrowthPolicy(l.AllNonFixedFieldsGrow)
+    l.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
     self.none = le = QLineEdit(w)
+    le.setClearButtonEnabled(True)
     l.addRow(_("Any of these &unwanted words:"), le)
 
 
@@ -113,9 +115,10 @@ def create_simple_tab(self, db):
     self.tab_widget.addTab(w, _("Titl&e/author/series..."))
 
     w.l = l = QFormLayout(w)
-    l.setFieldGrowthPolicy(l.AllNonFixedFieldsGrow)
+    l.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
     self.title_box = le = QLineEdit(w)
+    le.setClearButtonEnabled(True)
     le.setObjectName('title_box')
     le.setPlaceholderText(_('The title to search for'))
     l.addRow(_('&Title:'), le)
@@ -150,6 +153,7 @@ def create_simple_tab(self, db):
     self.general_combo.addItems(searchables)
     self.box_last_values = copy.deepcopy(box_values)
     self.general_box = le = QLineEdit(self)
+    le.setClearButtonEnabled(True)
     le.setObjectName('general_box')
     l.addRow(self.general_combo, le)
     if self.box_last_values:
@@ -163,7 +167,7 @@ def create_simple_tab(self, db):
 
 def create_date_tab(self, db):
     self.date_tab = w = QWidget(self.tab_widget)
-    self.tab_widget.addTab(w, _("&Date searches"))
+    self.tab_widget.addTab(w, _("&Date search"))
     w.l = l = QVBoxLayout(w)
 
     def a(w):
@@ -239,9 +243,10 @@ def create_template_tab(self):
     self.tab_widget.addTab(w, _("&Template search"))
 
     w.l = l = QFormLayout(w)
-    l.setFieldGrowthPolicy(l.AllNonFixedFieldsGrow)
+    l.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
     self.template_value_box = le = QLineEdit(w)
+    le.setClearButtonEnabled(True)
     le.setObjectName('template_value_box')
     le.setPlaceholderText(_('The value to search for'))
     le.setToolTip('<p>' +
@@ -308,7 +313,7 @@ class SearchDialog(QDialog):
             focused_field = gprefs.get('advanced_search_simple_tab_focused_field', 'title_box')
             w = getattr(self, focused_field, None)
             if w is not None:
-                w.setFocus(Qt.OtherFocusReason)
+                w.setFocus(Qt.FocusReason.OtherFocusReason)
         elif current_tab == 3:
             self.template_program_box.setText(
                       gprefs.get('advanced_search_template_tab_program_field', ''))

@@ -23,6 +23,210 @@
 # - title by author
 # }}}
 
+{{{ 5.8.1 2020-12-24
+
+:: new features
+
+- Happy holidays to all calibre users!
+
+- E-book viewer: Add a mode to follow links with only the keyboard (triggered by Alt+F)
+
+- [1908929] Edit book: A new option to show a configurable number lines above the current line when syncing the position of the preview panel to the current position in the code editor (under Preview settings in the Editor preferences).
+
+- [1907410] Windows: Automatically resolve shortcuts (.lnk files) when adding books to calibre.
+
+- Content server viewer: Don't enter full screen mode automatically when reading on desktop like devices (this can be controlled via a setting in the viewer preferences under Page layout)
+
+- E-book viewer tool bar: Add a select all action and a Read aloud action (can be added by right clicking the tool bar and configuring it)
+
+- Template/formatter enhancements: Add a 'for' statement and add the ability for a developer to pass extra information to a template.
+
+- [1907919 1907918] Rules editors for icon/coloring rules: Add a button to duplicate rules and to convert a rule to advanced template mode
+
+:: bug fixes
+
+- Content server viewer: Fix regression in 5.0 that broke scrolling on iOS
+
+- [1908000] E-book viewer: Fix error when scrolling to some search results in flow mode
+
+- [1898394] AZW3 Input: Fix rare AID based links not working.
+
+- [1907907] E-book viewer: Fix clock in header/footer not using system time format
+
+- Windows: Fix Read aloud not working with books that have a single large internal text file, such as MOBI or DOCX books
+
+- PDF Output: Fix a regression causing conversion to fail when typesetting Chinese text
+
+- Amazon metadata download: Fix no results being found when using the automatic or Google servers because of a change in the markup of the Google search results page.
+
+- [1909217 1909197] Version 5.8.1 fixes a couple of regressions that broke the Save to disk function and changing Page layout settings in the viewer.
+
+:: improved recipes
+
+- The Australian
+- The Atlantic
+- Zerohedge
+- New York Times Book Review
+
+:: new recipes
+
+- SchwarzerPfeil by tastytea
+- Substack by topynate
+}}}
+
+{{{ 5.7.2 2020-12-12
+
+:: new features
+
+- [major] E-book viewer: Add a "Read aloud" function that works via the operating system's Text-to-speech engine.
+
+  Click the "Read aloud" button in the viewer controls to start reading the book text aloud from the current page.
+
+- A new busy spinner for waiting animations
+
+- [1907140] Edit metadata: Add buttons to easily set yes/no fields also shortcut to clear the field.
+
+:: bug fixes
+
+- [1905967] PDF Output: Fix a regression in the previous release that broke text rendering for some fonts due to a bug in Qt WebEngine (full fix is in 5.7.2).
+
+- [1905736] PDF Output: Fix conversion failing when adding header/footer and the input document defines margins/padding on the <html> tag.
+
+- [1907159] Windows: Fix the case of library names in copied calibre:// links sometimes incorrect.
+
+- [1906459] AZW3 Input: Fix a regression in calibre 5 that broke processing of files with inline flow replacements.
+
+- [1906149] Fix hiding and showing book details panel changes its size by a pixel or two.
+
+- [1907067] Get books: Fix amazon.fr not working because of website changes.
+
+- Bulk metadata search/replace: Fix text transform function not being applied to the test result in character mode
+
+- [1906464] Book list: Improve rendering of column headers when they dont fit, by eliding them instead of just cutting off rendering.
+
+- [1906063] Fix template function "first_non_empty" fails if no argument evaluates non-empty
+
+- [1907773] Fix regression in 5.7.0 causing failure to start if one of the previously used libraries had a stored path ending in a slash.
+
+:: improved recipes
+- The Guardian
+- The Atlantic
+
+}}}
+
+
+{{{ 5.6.0 2020-11-27
+
+:: new features
+
+- Edit book: Show a non-modal popup for a few seconds to allow undoing file delete operations
+
+- [1903418] Device books view: Add an action to the context menu to easily jump to the matching book in the calibre library view
+
+- [1903270] Add ability to undo Generate cover in the Edit metadata screen, by long clicking the Generate cover button
+
+- Edit book: Allow adding tags to the list of tags for the insert tag button
+
+- calibredb add: New option --automerge to automatically merge duplicates
+
+- [1905646] Add an edit notes action to the context menu in the viewer highlights panel
+
+- [1903333] Content server viewer: Allow viewing images in a new window by right clicking them, matches the calibre builtin viewer behavior
+
+- [1903403] Book details window: Allow opening the edit metadata window using either the keyboard shortcut or the context menu
+
+- Allow copying the current search as a calibre:// URL by right clicking the search box
+
+- Book details panel: Add entries to copy calibre:// links for the current book to the context menu
+
+- Edit book: Upgrade book: Ask whether to keep the NCX based Table of Contents
+
+:: bug fixes
+
+- [1904310] Windows: Fix calibre portable launcher not working correctly from root directory in calibre 5.5
+
+- [1904505] macOS: Fix rendering of space after punctuation incorrect in Big Sur
+
+- [1905319] DOCX Input: When converting images placed using the obsolete VML markup default them to being inline rather than block images
+
+- [1905479] Metadata edit dialog: Fix keyboard shortcuts for bold/italic/underline not working when more than one comments editor widget is present on a single tab
+
+- [1905113] When using calibre://show-book URLs and the book is not found, clear any Virtual library or search restriction and then show the book
+
+- macOS: Fix calibre:// URLs not working from other documents
+
+- Fix calibre:// URL search action not changing library if needed
+
+- [1904305] annotation_count() template function displaying value for deleted annotations
+
+- [1905806] Edit book: Fix syntax highlighting not recognizing ends-with selector
+
+:: improved recipes
+- The BBC
+- Folha de Sao Paolo
+- Netzpolitik
+
+}}}
+
+{{{ 5.5.0 2020-11-13
+
+:: new features
+
+- [major] Support the calibre:// URL scheme
+
+  Clicking on calibre:// URLs can be used to have calibre perform various actions.
+  For details, see: https://manual.calibre-ebook.com/url_scheme.html
+
+- Viewer: Show calibre:// URL for current book in the Goto->Location panel
+
+- [1902518] Edit book: Add an action to the right click menu for tabs to close tabs to the right of the current tab.
+
+- [1902413] Add ability to copy tag, publisher and author in Book details panel by right-clicking
+
+- [1902326] Annotations browser: Add a context menu for common actions.
+
+- [1899839] Annotations browser: Show a dot for highlights with notes.
+
+- [1902227] Edit book: Saved searches panel: Allow copying the current saved search to the regular search panel by clicking the Export button.
+
+- Windows: Fix command line arguments not working for the portable.exe launchers
+
+- Viewer: back and forward buttons on the mouse now trigger the back and forward actions
+
+- [1902313] Option to mark all books with annotations/bookmarks
+
+- Various minor improvements to how keyboard focus is handled in the Tag browser
+
+:: bug fixes
+
+- [1903294] Edit book: Fix regression in calibre 5 that caused an error when managing user dictionaries.
+
+- [1903831] Viewer: Fix previous/next buttons iterating over removed bookmarks
+
+- [1903825] Welcome wizard: Fix changing the language causing a empty folder to be created.
+
+- [1903699] Viewer: Fix regression causing custom shortcuts with Shift key pressed not working
+
+- [1903423] Viewer: In dark mode when showing images with transparency in the popup use a light background color as most images are designed with a light background color in mind.
+
+- [1903428] Fix a regression in the previous release that broke conversion of DJVU files
+
+- [1903363] Metadata edit: "Set to Undefined" button missing on integer columns.
+
+- [1903086] Entry remains underlined in Tag Browser after clearing filter
+
+- [1902126] XML Catalogs: Fix languages field missing
+
+- Fix a regression that broke loading of third party plugins that are encoded in an encoding other than UTF-8
+
+- macOS: Fix viewer not responding to cmd+c to copy text by default
+
+- Windows: Fix sending email on computers with non-ASCII computer names
+
+:: improved recipes
+- Spectator Magazine
+
+}}}
 
 {{{ 5.4.2 2020-10-30
 
@@ -53,7 +257,7 @@
 
 - Get Books: Update Google and Gutenberg plugins for website changes
 
-- [1900946] Viewer: Fix keyboard shortcuts using ctrl+alt+letter key not working on Windows.
+- [1900946] Viewer: Fix keyboard shortcuts using Ctrl+Alt+letter key not working on Windows.
 
 - [1900942] Viewer: Fix keyboard shortcuts to shrink/grow selection not working.
 
@@ -190,9 +394,9 @@ Only works with output formats such as EPUB that support CSS transforms
 
 - Viewer: Fix selection popup bar not always close to mouse when ending select-to-drag
 
-- Fix calibre-server not exiting on Ctrl+c on Windows
+- Fix calibre-server not exiting on Ctrl+C on Windows
 
-- [1897410] Content server OPDS feeds: Fix error if the metadata for a book contains particular unicode characters.
+- [1897410] Content server OPDS feeds: Fix error if the metadata for a book contains particular Unicode characters.
 
 - [1898167] Edit book: Reports tool: Fix a regression that broke sorting.
 
@@ -604,7 +808,7 @@ For books sent with this release of calibre, reconnecting the Kindle to calibre 
 
 - Viewer: Improve the interface for changing font sizes
 
-- Viewer: Add a keyboard shortcut (Ctrl+Alt+b) for adding a bookmark
+- Viewer: Add a keyboard shortcut (Ctrl+Alt+B) for adding a bookmark
 
 
 :: bug fixes
@@ -708,7 +912,7 @@ For books sent with this release of calibre, reconnecting the Kindle to calibre 
 
 - Edit book: Allow skipping confirmation dialog when marking non-first file as cover page
 
-- [1866742] Add a shortcut [Ctrl+Alt+p] to switch to the previously opened library.
+- [1866742] Add a shortcut [Ctrl+Alt+P] to switch to the previously opened library.
 
 
 :: bug fixes
@@ -719,7 +923,7 @@ For books sent with this release of calibre, reconnecting the Kindle to calibre 
 
 - Viewer: Ensure there is no bleed between pages when using single page per screen
 
-- Fix shift click not working reliably in the book list
+- Fix Shift click not working reliably in the book list
 
 - Fix edit open with applications not working from files browser in editor
 
@@ -761,11 +965,11 @@ For books sent with this release of calibre, reconnecting the Kindle to calibre 
 
 - [1864305] Content server: Add a button to delete all locally cached books.
 
-- Edit Book: Allow selecting the contents of a tag with Ctrl+Alt+t
+- Edit Book: Allow selecting the contents of a tag with Ctrl+Alt+T
 
 - Viewer: Save current position after 3 seconds of last position change. Useful if the viewer crashes on resume from sleep.
 
-- [1864356] Viewer: Add a keyboard shortcut (Ctrl+w) to toggle the scrollbar.
+- [1864356] Viewer: Add a keyboard shortcut (Ctrl+W) to toggle the scrollbar.
 
 - Viewer: Keyboard shortcuts to change number of columns (Ctrl+[ and Ctrl+])
 
@@ -805,13 +1009,13 @@ For books sent with this release of calibre, reconnecting the Kindle to calibre 
 
 - Edit book: Preview panel: Allow right clicking on images to edit them
 
-- Add a new Quick select action to quickly select a virtual library with a few keystrokes. Activated by Ctrl+t or the Virtual library menu
+- Add a new Quick select action to quickly select a Virtual library with a few keystrokes. Activated by Ctrl+T or the Virtual library menu
 
 - Viewer: Calculate default column widths based on current font size
 
 - [1862441] Viewer: Add a control to quit the viewer useful on touchscreens.
 
-- [1862432] Viewer: Add shortcut for showing metadata (Ctrl+n)
+- [1862432] Viewer: Add shortcut for showing metadata (Ctrl+N)
 
 
 :: bug fixes
@@ -1210,7 +1414,7 @@ If you turn on dark mode under the Windows Settings->Personalisation->Colors and
 
 - PDF Output: When a link with a fragment points to a non-existent anchor link to the top of the file instead of not linking at all
 
-- PDF Output: Fix standard svg fullscreen image markup not working
+- PDF Output: Fix standard SVG fullscreen image markup not working
 
 - [1848701] PDF Output: Fix some books with full screen images failing to convert.
 
@@ -1298,7 +1502,7 @@ If you turn on dark mode under the Windows Settings->Personalisation->Colors and
 
 - Viewer: Don't flash the home page before loading a book if a book has been specified
 
-- Viewer: Fix ctrl+m shortcut not working on Windows
+- Viewer: Fix Ctrl+M shortcut not working on Windows
 
 - Content server: Fix regression that caused series name in book details view not not be blue to indicate it is clickable
 

@@ -40,10 +40,18 @@ class AbortInit(Exception):
 
 def option_parser():
     parser = _option_parser(_('''\
-%prog [options] [path_to_ebook]
+%prog [options] [path_to_ebook or calibre url ...]
 
 Launch the main calibre Graphical User Interface and optionally add the e-book at
-path_to_ebook to the database.
+path_to_ebook to the database. You can also specify calibre URLs to perform various
+different actions, than just adding books. For example:
+
+calibre://view-book/test_library/1842/epub
+
+Will open the book with id 1842 in the EPUB format from the library
+"test_library" in the calibre E-book viewer. Library names are the folder names of the
+libraries with spaces replaced by underscores. A full description of the
+various URL based actions is in the User Manual.
 '''))
     parser.add_option('--with-library', default=None, action='store',
                       help=_('Use the library located at the specified path.'))
@@ -429,9 +437,10 @@ def send_message(msg):
     except Exception as err:
         print(_('Failed to contact running instance of calibre'), file=sys.stderr, flush=True)
         print(err, file=sys.stderr, flush=True)
-        error_dialog(None, _('Contacting calibre failed'), _(
-            'Failed to contact running instance of calibre, try restarting calibre'),
-            det_msg=str(err) + '\n\n' + repr(msg), show=True)
+        if Application.instance():
+            error_dialog(None, _('Contacting calibre failed'), _(
+                'Failed to contact running instance of calibre, try restarting calibre'),
+                det_msg=str(err) + '\n\n' + repr(msg), show=True)
         return False
     return True
 

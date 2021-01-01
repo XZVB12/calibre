@@ -398,7 +398,7 @@ operates on the intermediate XHTML produced by the conversion pipeline. Use the 
 :ref:`conversion-introduction` to figure out the appropriate settings for your book. There is also a button for a XPath wizard
 to help with the generation of simple XPath expressions.
 
-By default, calibre uses the following expression for chapter detection::
+By default, calibre uses the following expression for detecting chapters::
 
     //*[((name()='h1' or name()='h2') and re:test(., 'chapter|book|section|part\s+', 'i')) or @class = 'chapter']
 
@@ -720,13 +720,13 @@ Convert PDF documents
 
 PDF documents are one of the worst formats to convert from. They are a fixed page size and text placement format.
 Meaning, it is very difficult to determine where one paragraph ends and another begins. calibre will try to unwrap
-paragraphs using a configurable, :guilabel:`Line Un-Wrapping Factor`. This is a scale used to determine the length
+paragraphs using a configurable, :guilabel:`Line un-wrapping factor`. This is a scale used to determine the length
 at which a line should be unwrapped. Valid values are a decimal
 between 0 and 1. The default is 0.45, just under the median line length. Lower this value to include more
 text in the unwrapping. Increase to include less. You can adjust this value in the conversion settings under :guilabel:`PDF Input`.
 
 Also, they often have headers and footers as part of the document that will become included with the text.
-Use the Search and Replace panel to remove headers and footers to mitigate this issue. If the headers and footers are not
+Use the :guilabel:`Search and replace` panel to remove headers and footers to mitigate this issue. If the headers and footers are not
 removed from the text it can throw off the paragraph unwrapping. To learn how to use the header and footer removal options, read
 :ref:`regexptutorial`.
 
@@ -736,7 +736,7 @@ Some limitations of PDF input are:
     * Extraction of vector images and tables from within the document is also not supported.
     * Some PDFs use special glyphs to represent ll or ff or fi, etc. Conversion of these may or may not work depending on just how they are represented internally in the PDF.
     * Links and Tables of Contents are not supported
-    * PDFs that use embedded non-unicode fonts to represent non-English characters will result in garbled output for those characters
+    * PDFs that use embedded non-Unicode fonts to represent non-English characters will result in garbled output for those characters
     * Some PDFs are made up of photographs of the page with OCRed text behind them. In such cases calibre uses the OCRed text, which can be very different from what you see when you view the PDF file
     * PDFs that are used to display complex text, like right to left languages and math typesetting will not convert correctly
 

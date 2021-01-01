@@ -3,18 +3,20 @@
 from __python__ import bound_methods, hash_literals
 
 import traceback
-from gettext import gettext as _
-from select import move_end_of_selection, selection_extents, word_at_point
-
 from fs_images import fix_fullscreen_svg_images
+from gettext import gettext as _
 from iframe_comm import IframeClient
 from range_utils import (
-    highlight_associated_with_selection, last_span_for_crw, reset_highlight_counter,
-    select_crw, unwrap_all_crw, unwrap_crw, wrap_text_in_range
+    highlight_associated_with_selection,
+    last_span_for_crw, reset_highlight_counter, select_crw, unwrap_all_crw,
+    unwrap_crw, wrap_text_in_range
 )
+from read_book.hints import hint_visible_links, unhint_links, apply_prefix_to_hints
 from read_book.cfi import cfi_for_selection, range_from_cfi
 from read_book.extract import get_elements
-from read_book.find import reset_find_caches, select_search_result
+from read_book.find import (
+    reset_find_caches, select_search_result, select_tts_mark, tts_data
+)
 from read_book.flow_mode import (
     anchor_funcs as flow_anchor_funcs, auto_scroll_action as flow_auto_scroll_action,
     cancel_drag_scroll as cancel_drag_scroll_flow, ensure_selection_visible,
@@ -38,8 +40,8 @@ from read_book.paged_mode import (
     cancel_drag_scroll as cancel_drag_scroll_paged, current_cfi,
     get_columns_per_screen_data, handle_gesture as paged_handle_gesture,
     handle_shortcut as paged_handle_shortcut, jump_to_cfi as paged_jump_to_cfi,
-    layout as paged_layout, onwheel as paged_onwheel,
-    prepare_for_resize as paged_prepare_for_resize, progress_frac, page_counts,
+    layout as paged_layout, onwheel as paged_onwheel, page_counts,
+    prepare_for_resize as paged_prepare_for_resize, progress_frac,
     reset_paged_mode_globals, resize_done as paged_resize_done,
     scroll_by_page as paged_scroll_by_page, scroll_to_elem,
     scroll_to_extend_annotation as paged_annotation_scroll,
@@ -57,11 +59,14 @@ from read_book.settings import (
 from read_book.shortcuts import (
     create_shortcut_map, keyevent_as_shortcut, shortcut_for_key_event
 )
-from read_book.toc import update_visible_toc_anchors, find_anchor_before_range
+from read_book.toc import find_anchor_before_range, update_visible_toc_anchors
 from read_book.touch import (
     create_handlers as create_touch_handlers, reset_handlers as reset_touch_handlers
 )
 from read_book.viewport import scroll_viewport
+from select import (
+    move_end_of_selection, selection_extents, word_at_point, first_visible_word
+)
 from utils import debounce, is_ios
 
 FORCE_FLOW_MODE = False
@@ -143,6 +148,8 @@ class IframeBoss:
             'show_search_result': self.show_search_result,
             'handle_navigation_shortcut': self.on_handle_navigation_shortcut,
             'annotations': self.annotations_msg_received,
+            'tts': self.tts_msg_received,
+            'hints': self.hints_msg_received,
             'copy_selection': self.copy_selection,
             'replace_highlights': self.replace_highlights,
             'clear_selection': def(): window.getSelection().removeAllRanges();,
@@ -223,6 +230,7 @@ class IframeBoss:
         set_toc_anchor_map()
         self.replace_history_on_next_cfi_update = True
         self.book = current_book.book = data.book
+        self.link_attr = 'data-' + self.book.manifest.link_uid
         self.reference_mode_enabled = data.reference_mode_enabled
         self.is_titlepage = data.is_titlepage
         spine = self.book.manifest.spine
@@ -546,7 +554,8 @@ class IframeBoss:
             annot_id = highlight_associated_with_selection(sel, annot_id_uuid_map)
             r = sel.getRangeAt(0)
             start_is_anchor = r.startContainer is sel.anchorNode and r.startOffset is sel.anchorOffset
-        by_search = window.performance.now() - self.last_search_at < 1000
+        now = window.performance.now()
+        by_search = now - self.last_search_at < 1000
         self.send_message(
             'selectionchange', text=text, empty=v'!!collapsed', annot_id=annot_id,
             drag_mouse_position=drag_mouse_position, selection_change_caused_by_search=by_search,
@@ -644,9 +653,9 @@ class IframeBoss:
     def send_message(self, action, **data):
         self.comm.send_message(action, data)
 
+
     def connect_links(self):
-        link_attr = 'data-' + self.book.manifest.link_uid
-        for a in document.body.querySelectorAll('a[{}]'.format(link_attr)):
+        for a in document.body.querySelectorAll(f'a[{self.link_attr}]'):
             a.addEventListener('click', self.link_activated)
         if runtime.is_standalone_viewer:
             # links with a target get turned into requests to open a new window by Qt
@@ -663,23 +672,24 @@ class IframeBoss:
             self.send_message('view_image', calibre_src=img.dataset.calibreSrc)
 
     def link_activated(self, evt):
-        link_attr = 'data-' + self.book.manifest.link_uid
         try:
-            data = JSON.parse(evt.currentTarget.getAttribute(link_attr))
+            data = JSON.parse(evt.currentTarget.getAttribute(self.link_attr))
         except:
-            print('WARNING: Failed to parse link data {}, ignoring'.format(evt.currentTarget?.getAttribute?(link_attr)))
+            print('WARNING: Failed to parse link data {}, ignoring'.format(evt.currentTarget?.getAttribute?(self.link_attr)))
             return
-        name, frag = data.name, data.frag
+        self.activate_link(data.name, data.frag, evt.currentTarget)
+
+    def activate_link(self, name, frag, target_elem):
         if not name:
             name = current_spine_item().name
         try:
-            is_popup = is_footnote_link(evt.currentTarget, name, frag, current_spine_item().name, self.book.manifest.link_to_map or {})
+            is_popup = is_footnote_link(target_elem, name, frag, current_spine_item().name, self.book.manifest.link_to_map or {})
         except:
             import traceback
             traceback.print_exc()
             is_popup = False
         if is_popup:
-            self.send_message('show_footnote', name=name, frag=frag, title=evt.currentTarget.textContent, cols_per_screen=calc_columns_per_screen())
+            self.send_message('show_footnote', name=name, frag=frag, title=target_elem.textContent, cols_per_screen=calc_columns_per_screen())
             return
         if name is current_spine_item().name:
             self.replace_history_on_next_cfi_update = False
@@ -889,6 +899,51 @@ class IframeBoss:
             for i in range(s.rangeCount):
                 container.appendChild(s.getRangeAt(i).cloneContents())
             self.send_message('copy_text_to_clipboard', text=text, html=container.innerHTML)
+
+    def tts_msg_received(self, data):
+        if data.type is 'mark':
+            self.mark_word_being_spoken(data.num)
+        elif data.type is 'play':
+            text_node, offset = None, 0
+            if data.pos:
+                r = word_at_point(data.pos.x, data.pos.y)
+            else:
+                r = first_visible_word()
+            if r and r.startContainer?.nodeType is Node.TEXT_NODE:
+                text_node, offset = r.startContainer, r.startOffset
+            marked_text = tts_data(text_node, offset)
+            sel = window.getSelection()
+            sel.removeAllRanges()
+            self.send_message('tts', type='text-extracted', marked_text=marked_text, pos=data.pos)
+
+    def mark_word_being_spoken(self, occurrence_number):
+        self.last_search_at = window.performance.now()
+        if select_tts_mark(occurrence_number):
+            self.ensure_selection_visible()
+
+    def hints_msg_received(self, data):
+        if data.type is 'show':
+            # clear selection so that it does not confuse with the hints which use the same colors
+            window.getSelection().removeAllRanges()
+            hints_map = hint_visible_links()
+            self.send_message('hints', type='shown', hints_map=hints_map)
+        elif data.type is 'hide':
+            unhint_links()
+        elif data.type is 'activate':
+            hint = data.hint
+            if hint.type is 'link':
+                a = document.body.querySelector(f'[data-calibre-hint-value="{hint.value}"]')
+                a.removeEventListener('animationend', self.hint_animation_ended)
+                a.addEventListener('animationend', self.hint_animation_ended, False)
+                a.classList.add('calibre-animated-hint')
+        elif data.type is 'apply_prefix':
+            apply_prefix_to_hints(data.prefix)
+
+    def hint_animation_ended(self, ev):
+        a = ev.currentTarget
+        a.classList.remove('calibre-animated-hint')
+        a.click()
+
 
 def main():
     main.boss = IframeBoss()

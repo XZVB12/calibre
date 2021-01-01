@@ -24,7 +24,7 @@ class Icon(QWidget):
     def __init__(self, parent=None, size=None):
         QWidget.__init__(self, parent)
         self.pixmap = None
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.size = size or 64
 
     def set_icon(self, qicon):
@@ -68,7 +68,7 @@ class MessageBox(QDialog):  # {{{
         dm.setObjectName("det_msg")
         l.addWidget(dm, 1, 0, 1, 2)
         self.bb = bb = QDialogButtonBox(self)
-        bb.setStandardButtons(QDialogButtonBox.Ok)
+        bb.setStandardButtons(QDialogButtonBox.StandardButton.Ok)
         bb.setObjectName("bb")
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
@@ -107,42 +107,42 @@ class MessageBox(QDialog):  # {{{
 
         if show_copy_button:
             self.ctc_button = self.bb.addButton(_('&Copy to clipboard'),
-                    self.bb.ActionRole)
+                    QDialogButtonBox.ButtonRole.ActionRole)
             self.ctc_button.clicked.connect(self.copy_to_clipboard)
 
         self.show_det_msg = _('Show &details')
         self.hide_det_msg = _('Hide &details')
-        self.det_msg_toggle = self.bb.addButton(self.show_det_msg, self.bb.ActionRole)
+        self.det_msg_toggle = self.bb.addButton(self.show_det_msg, QDialogButtonBox.ButtonRole.ActionRole)
         self.det_msg_toggle.clicked.connect(self.toggle_det_msg)
         self.det_msg_toggle.setToolTip(
                 _('Show detailed information about this error'))
 
         self.copy_action = QAction(self)
         self.addAction(self.copy_action)
-        self.copy_action.setShortcuts(QKeySequence.Copy)
+        self.copy_action.setShortcuts(QKeySequence.StandardKey.Copy)
         self.copy_action.triggered.connect(self.copy_to_clipboard)
 
         self.is_question = type_ == self.QUESTION
         if self.is_question:
-            self.bb.setStandardButtons(self.bb.Yes|self.bb.No)
-            self.bb.button(self.bb.Yes if default_yes else self.bb.No
+            self.bb.setStandardButtons(QDialogButtonBox.StandardButton.Yes|QDialogButtonBox.StandardButton.No)
+            self.bb.button(QDialogButtonBox.StandardButton.Yes if default_yes else QDialogButtonBox.StandardButton.No
                     ).setDefault(True)
             self.default_yes = default_yes
             if yes_text is not None:
-                self.bb.button(self.bb.Yes).setText(yes_text)
+                self.bb.button(QDialogButtonBox.StandardButton.Yes).setText(yes_text)
             if no_text is not None:
-                self.bb.button(self.bb.No).setText(no_text)
+                self.bb.button(QDialogButtonBox.StandardButton.No).setText(no_text)
             if yes_icon is not None:
-                self.bb.button(self.bb.Yes).setIcon(yes_icon if isinstance(yes_icon, QIcon) else QIcon(I(yes_icon)))
+                self.bb.button(QDialogButtonBox.StandardButton.Yes).setIcon(yes_icon if isinstance(yes_icon, QIcon) else QIcon(I(yes_icon)))
             if no_icon is not None:
-                self.bb.button(self.bb.No).setIcon(no_icon if isinstance(no_icon, QIcon) else QIcon(I(no_icon)))
+                self.bb.button(QDialogButtonBox.StandardButton.No).setIcon(no_icon if isinstance(no_icon, QIcon) else QIcon(I(no_icon)))
         else:
-            self.bb.button(self.bb.Ok).setDefault(True)
+            self.bb.button(QDialogButtonBox.StandardButton.Ok).setDefault(True)
 
         if not det_msg:
             self.det_msg_toggle.setVisible(False)
 
-        self.resize_needed.connect(self.do_resize, type=Qt.QueuedConnection)
+        self.resize_needed.connect(self.do_resize, type=Qt.ConnectionType.QueuedConnection)
         self.do_resize()
 
     def sizeHint(self):
@@ -173,12 +173,12 @@ class MessageBox(QDialog):  # {{{
         ret = QDialog.showEvent(self, ev)
         if self.is_question:
             try:
-                self.bb.button(self.bb.Yes if self.default_yes else self.bb.No
-                        ).setFocus(Qt.OtherFocusReason)
+                self.bb.button(QDialogButtonBox.StandardButton.Yes if self.default_yes else QDialogButtonBox.StandardButton.No
+                        ).setFocus(Qt.FocusReason.OtherFocusReason)
             except:
                 pass  # Buttons were changed
         else:
-            self.bb.button(self.bb.Ok).setFocus(Qt.OtherFocusReason)
+            self.bb.button(QDialogButtonBox.StandardButton.Ok).setFocus(Qt.FocusReason.OtherFocusReason)
         return ret
 
     def set_details(self, msg):
@@ -203,11 +203,11 @@ class ViewLog(QDialog):  # {{{
         self.tb.setHtml('<pre style="font-family: monospace">%s</pre>' % html)
         l.addWidget(self.tb)
 
-        self.bb = QDialogButtonBox(QDialogButtonBox.Ok)
+        self.bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         self.bb.accepted.connect(self.accept)
         self.bb.rejected.connect(self.reject)
         self.copy_button = self.bb.addButton(_('Copy to clipboard'),
-                self.bb.ActionRole)
+                QDialogButtonBox.ButtonRole.ActionRole)
         self.copy_button.setIcon(QIcon(I('edit-copy.png')))
         self.copy_button.clicked.connect(self.copy_to_clipboard)
         l.addWidget(self.bb)
@@ -273,7 +273,7 @@ class ProceedNotification(MessageBox):  # {{{
         self.log_is_file = log_is_file
         self.log_viewer_title = log_viewer_title
 
-        self.vlb = self.bb.addButton(_('&View log'), self.bb.ActionRole)
+        self.vlb = self.bb.addButton(_('&View log'), QDialogButtonBox.ButtonRole.ActionRole)
         self.vlb.setIcon(QIcon(I('debug.png')))
         self.vlb.clicked.connect(self.show_log)
         self.det_msg_toggle.setVisible(bool(det_msg))
@@ -291,7 +291,7 @@ class ProceedNotification(MessageBox):  # {{{
 
     def do_proceed(self, result):
         from calibre.gui2.ui import get_gui
-        func = (self.callback if result == self.Accepted else
+        func = (self.callback if result == QDialog.DialogCode.Accepted else
                 self.cancel_callback)
         gui = get_gui()
         gui.proceed_requested.emit(func, self.payload)
@@ -327,9 +327,9 @@ class ErrorNotification(MessageBox):  # {{{
                 parent=parent)
         self.html_log = html_log
         self.log_viewer_title = log_viewer_title
-        self.finished.connect(self.do_close, type=Qt.QueuedConnection)
+        self.finished.connect(self.do_close, type=Qt.ConnectionType.QueuedConnection)
 
-        self.vlb = self.bb.addButton(_('&View log'), self.bb.ActionRole)
+        self.vlb = self.bb.addButton(_('&View log'), QDialogButtonBox.ButtonRole.ActionRole)
         self.vlb.setIcon(QIcon(I('debug.png')))
         self.vlb.clicked.connect(self.show_log)
         self.det_msg_toggle.setVisible(bool(det_msg))
@@ -356,9 +356,9 @@ class JobError(QDialog):  # {{{
 
     def __init__(self, parent):
         QDialog.__init__(self, parent)
-        self.setAttribute(Qt.WA_DeleteOnClose, False)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         self.queue = []
-        self.do_pop.connect(self.pop, type=Qt.QueuedConnection)
+        self.do_pop.connect(self.pop, type=Qt.ConnectionType.QueuedConnection)
 
         self._layout = l = QGridLayout()
         self.setLayout(l)
@@ -369,22 +369,22 @@ class JobError(QDialog):  # {{{
         self.msg_label = QLabel('<p>&nbsp;')
         self.msg_label.setStyleSheet('QLabel { margin-top: 1ex; }')
         self.msg_label.setWordWrap(True)
-        self.msg_label.setTextFormat(Qt.RichText)
+        self.msg_label.setTextFormat(Qt.TextFormat.RichText)
         self.det_msg = QPlainTextEdit(self)
         self.det_msg.setVisible(False)
 
-        self.bb = QDialogButtonBox(QDialogButtonBox.Close, parent=self)
+        self.bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         self.bb.accepted.connect(self.accept)
         self.bb.rejected.connect(self.reject)
         self.ctc_button = self.bb.addButton(_('&Copy to clipboard'),
-                self.bb.ActionRole)
+                QDialogButtonBox.ButtonRole.ActionRole)
         self.ctc_button.clicked.connect(self.copy_to_clipboard)
-        self.retry_button = self.bb.addButton(_('&Retry'), self.bb.ActionRole)
+        self.retry_button = self.bb.addButton(_('&Retry'), QDialogButtonBox.ButtonRole.ActionRole)
         self.retry_button.clicked.connect(self.retry)
         self.retry_func = None
         self.show_det_msg = _('Show &details')
         self.hide_det_msg = _('Hide &details')
-        self.det_msg_toggle = self.bb.addButton(self.show_det_msg, self.bb.ActionRole)
+        self.det_msg_toggle = self.bb.addButton(self.show_det_msg, QDialogButtonBox.ButtonRole.ActionRole)
         self.det_msg_toggle.clicked.connect(self.toggle_det_msg)
         self.det_msg_toggle.setToolTip(
                 _('Show detailed information about this error'))
@@ -393,8 +393,8 @@ class JobError(QDialog):  # {{{
         l.addWidget(self.icon_widget, 0, 0, 1, 1)
         l.addWidget(self.msg_label,  0, 1, 1, 1)
         l.addWidget(self.det_msg,    1, 0, 1, 2)
-        l.addWidget(self.suppress,   2, 0, 1, 2, Qt.AlignLeft|Qt.AlignBottom)
-        l.addWidget(self.bb,         3, 0, 1, 2, Qt.AlignRight|Qt.AlignBottom)
+        l.addWidget(self.suppress,   2, 0, 1, 2, Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignBottom)
+        l.addWidget(self.bb,         3, 0, 1, 2, Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignBottom)
         l.setColumnStretch(1, 100)
 
         self.setModal(False)
@@ -441,7 +441,7 @@ class JobError(QDialog):  # {{{
 
     def showEvent(self, ev):
         ret = QDialog.showEvent(self, ev)
-        self.bb.button(self.bb.Close).setFocus(Qt.OtherFocusReason)
+        self.bb.button(QDialogButtonBox.StandardButton.Close).setFocus(Qt.FocusReason.OtherFocusReason)
         return ret
 
     def show_error(self, title, msg, det_msg='', retry_func=None):

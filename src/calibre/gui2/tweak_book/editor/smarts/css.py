@@ -7,7 +7,7 @@ __copyright__ = '2014, Kovid Goyal <kovid at kovidgoyal.net>'
 
 import re
 
-from PyQt5.Qt import Qt
+from PyQt5.Qt import Qt, QTextCursor
 
 from calibre.gui2.tweak_book import current_container
 from calibre.gui2.tweak_book.editor.smarts import NullSmarts
@@ -46,7 +46,7 @@ class Smarts(NullSmarts):
     def handle_key_press(self, ev, editor):
         key = ev.key()
 
-        if key in (Qt.Key_Enter, Qt.Key_Return) and no_modifiers(ev, Qt.ControlModifier, Qt.AltModifier):
+        if key in (Qt.Key.Key_Enter, Qt.Key.Key_Return) and no_modifiers(ev, Qt.KeyboardModifier.ControlModifier, Qt.KeyboardModifier.AltModifier):
             ls = get_leading_whitespace_on_block(editor)
             cursor, text = get_text_before_cursor(editor)
             if text.rstrip().endswith('{'):
@@ -54,7 +54,7 @@ class Smarts(NullSmarts):
             editor.textCursor().insertText('\n' + ls)
             return True
 
-        if key == Qt.Key_BraceRight:
+        if key == Qt.Key.Key_BraceRight:
             ls = get_leading_whitespace_on_block(editor)
             pls = get_leading_whitespace_on_block(editor, previous=True)
             cursor, text = get_text_before_cursor(editor)
@@ -64,20 +64,20 @@ class Smarts(NullSmarts):
                 editor.setTextCursor(cursor)
                 return True
 
-        if key == Qt.Key_Home and smart_home(editor, ev):
+        if key == Qt.Key.Key_Home and smart_home(editor, ev):
             return True
 
-        if key == Qt.Key_Tab and smart_tab(editor, ev):
+        if key == Qt.Key.Key_Tab and smart_tab(editor, ev):
             return True
 
-        if key == Qt.Key_Backspace and smart_backspace(editor, ev):
+        if key == Qt.Key.Key_Backspace and smart_backspace(editor, ev):
             return True
 
         return False
 
     def get_completion_data(self, editor, ev=None):
         c = editor.textCursor()
-        c.movePosition(c.StartOfLine, c.KeepAnchor)
+        c.movePosition(QTextCursor.MoveOperation.StartOfLine, QTextCursor.MoveMode.KeepAnchor)
         text = c.selectedText()
         m = self.complete_attr_pat.search(text)
         if m is None:

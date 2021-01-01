@@ -6,7 +6,7 @@
 import json
 
 from PyQt5.Qt import QObject, Qt, pyqtSignal
-from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineScript, QWebEngineView
+from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineScript, QWebEngineView, QWebEngineSettings
 
 from calibre import prints
 from calibre.utils.monotonic import monotonic
@@ -18,17 +18,17 @@ def secure_webengine(view_or_page_or_settings, for_viewer=False):
     s = view_or_page_or_settings.settings() if hasattr(
         view_or_page_or_settings, 'settings') else view_or_page_or_settings
     a = s.setAttribute
-    a(s.PluginsEnabled, False)
+    a(QWebEngineSettings.WebAttribute.PluginsEnabled, False)
     if not for_viewer:
-        a(s.JavascriptEnabled, False)
-        s.setUnknownUrlSchemePolicy(s.DisallowUnknownUrlSchemes)
+        a(QWebEngineSettings.WebAttribute.JavascriptEnabled, False)
+        s.setUnknownUrlSchemePolicy(QWebEngineSettings.UnknownUrlSchemePolicy.DisallowUnknownUrlSchemes)
         if hasattr(view_or_page_or_settings, 'setAudioMuted'):
             view_or_page_or_settings.setAudioMuted(True)
-    a(s.JavascriptCanOpenWindows, False)
-    a(s.JavascriptCanAccessClipboard, False)
+    a(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, False)
+    a(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, False)
     # ensure javascript cannot read from local files
-    a(s.LocalContentCanAccessFileUrls, False)
-    a(s.AllowWindowActivationFromJavaScript, False)
+    a(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, False)
+    a(QWebEngineSettings.WebAttribute.AllowWindowActivationFromJavaScript, False)
     return s
 
 
@@ -41,7 +41,11 @@ def insert_scripts(profile, *scripts):
         sc.insert(script)
 
 
-def create_script(name, src, world=QWebEngineScript.ApplicationWorld, injection_point=QWebEngineScript.DocumentReady, on_subframes=True):
+def create_script(
+    name, src, world=QWebEngineScript.ScriptWorldId.ApplicationWorld,
+    injection_point=QWebEngineScript.InjectionPoint.DocumentReady,
+    on_subframes=True
+):
     script = QWebEngineScript()
     if isinstance(src, bytes):
         src = src.decode('utf-8')
@@ -71,7 +75,7 @@ class to_js_bound(QObject):
 
     def __call__(self, *args):
         self.parent().page.runJavaScript('if (window.python_comm) python_comm._from_python({}, {})'.format(
-            json.dumps(self.name), json.dumps(args)), QWebEngineScript.ApplicationWorld)
+            json.dumps(self.name), json.dumps(args)), QWebEngineScript.ScriptWorldId.ApplicationWorld)
     emit = __call__
 
 
@@ -105,11 +109,11 @@ class Bridge(QObject):
         for k, v in iteritems(self.__class__.__dict__):
             if isinstance(v, to_js):
                 setattr(self, k, to_js_bound(self, k))
-        self.page.runJavaScript('python_comm._register_signals(' + self._signals + ')', QWebEngineScript.ApplicationWorld)
+        self.page.runJavaScript('python_comm._register_signals(' + self._signals + ')', QWebEngineScript.ScriptWorldId.ApplicationWorld)
         self.bridge_ready.emit()
 
     def _poll_for_messages(self):
-        self.page.runJavaScript('python_comm._poll()', QWebEngineScript.ApplicationWorld, self._dispatch_messages)
+        self.page.runJavaScript('python_comm._poll()', QWebEngineScript.ScriptWorldId.ApplicationWorld, self._dispatch_messages)
 
     def _dispatch_messages(self, messages):
         try:
@@ -143,10 +147,10 @@ class RestartingWebEngineView(QWebEngineView):
         QWebEngineView.__init__(self, parent)
         self._last_reload_at = None
         self.renderProcessTerminated.connect(self.render_process_terminated)
-        self.render_process_restarted.connect(self.reload, type=Qt.QueuedConnection)
+        self.render_process_restarted.connect(self.reload, type=Qt.ConnectionType.QueuedConnection)
 
     def render_process_terminated(self, termination_type, exit_code):
-        if termination_type == QWebEnginePage.NormalTerminationStatus:
+        if termination_type == QWebEnginePage.RenderProcessTerminationStatus.NormalTerminationStatus:
             return
         self.webengine_crash_message = 'The Qt WebEngine Render process crashed with termination type: {} and exit code: {}'.format(
                 termination_type, exit_code)

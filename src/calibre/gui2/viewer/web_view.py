@@ -8,12 +8,12 @@ import shutil
 import sys
 from itertools import count
 from PyQt5.Qt import (
-    QT_VERSION, QApplication, QBuffer, QByteArray, QFontDatabase, QFontInfo,
-    QHBoxLayout, QMimeData, QSize, Qt, QTimer, QUrl, QWidget, pyqtSignal
+    QT_VERSION, QApplication, QBuffer, QByteArray, QFontDatabase, QFontInfo, QPalette, QEvent,
+    QHBoxLayout, QMimeData, QSize, Qt, QTimer, QUrl, QWidget, pyqtSignal, QIODevice, QLocale
 )
-from PyQt5.QtWebEngineCore import QWebEngineUrlSchemeHandler
+from PyQt5.QtWebEngineCore import QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob, QWebEngineUrlRequestInfo
 from PyQt5.QtWebEngineWidgets import (
-    QWebEnginePage, QWebEngineProfile, QWebEngineScript, QWebEngineView
+    QWebEnginePage, QWebEngineProfile, QWebEngineScript, QWebEngineView, QWebEngineSettings
 )
 
 from calibre import as_unicode, prints
@@ -25,6 +25,7 @@ from calibre.ebooks.metadata.book.base import field_metadata
 from calibre.ebooks.oeb.polish.utils import guess_type
 from calibre.gui2 import choose_images, error_dialog, safe_open_url
 from calibre.gui2.viewer.config import viewer_config_dir, vprefs
+from calibre.gui2.viewer.tts import TTS
 from calibre.gui2.webengine import (
     Bridge, RestartingWebEngineView, create_script, from_js, insert_scripts,
     secure_webengine, to_js
@@ -99,7 +100,7 @@ def send_reply(rq, mime_type, data):
     # make the buf a child of rq so that it is automatically deleted when
     # rq is deleted
     buf = QBuffer(parent=rq)
-    buf.open(QBuffer.WriteOnly)
+    buf.open(QIODevice.OpenModeFlag.WriteOnly)
     # we have to copy data into buf as it will be garbage
     # collected by python
     buf.write(data)
@@ -123,14 +124,14 @@ def handle_mathjax_request(rq, name):
                 raw = f.read()
         except EnvironmentError as err:
             prints("Failed to get mathjax file: {} with error: {}".format(name, err), file=sys.stderr)
-            rq.fail(rq.RequestFailed)
+            rq.fail(QWebEngineUrlRequestJob.Error.RequestFailed)
             return
         if name.endswith('/startup.js'):
             raw = P('pdf-mathjax-loader.js', data=True, allow_user_override=False) + raw
         send_reply(rq, mt, raw)
     else:
         prints("Failed to get mathjax file: {} outside mathjax directory".format(name), file=sys.stderr)
-        rq.fail(rq.RequestFailed)
+        rq.fail(QWebEngineUrlRequestJob.Error.RequestFailed)
 
 
 class UrlSchemeHandler(QWebEngineUrlSchemeHandler):
@@ -141,7 +142,7 @@ class UrlSchemeHandler(QWebEngineUrlSchemeHandler):
 
     def requestStarted(self, rq):
         if bytes(rq.requestMethod()) != b'GET':
-            return self.fail_request(rq, rq.RequestDenied)
+            return self.fail_request(rq, QWebEngineUrlRequestJob.Error.RequestDenied)
         url = rq.requestUrl()
         host = url.host()
         if host not in self.allowed_hosts or url.scheme() != FAKE_PROTOCOL:
@@ -160,7 +161,7 @@ class UrlSchemeHandler(QWebEngineUrlSchemeHandler):
             try:
                 data, mime_type = get_data(name)
                 if data is None:
-                    rq.fail(rq.UrlNotFound)
+                    rq.fail(QWebEngineUrlRequestJob.Error.UrlNotFound)
                     return
                 data = as_bytes(data)
                 mime_type = {
@@ -173,7 +174,7 @@ class UrlSchemeHandler(QWebEngineUrlSchemeHandler):
             except Exception:
                 import traceback
                 traceback.print_exc()
-                return self.fail_request(rq, rq.RequestFailed)
+                return self.fail_request(rq, QWebEngineUrlRequestJob.Error.RequestFailed)
         elif name == 'manifest':
             data = b'[' + set_book_path.manifest + b',' + set_book_path.metadata + b']'
             send_reply(rq, set_book_path.manifest_mime, data)
@@ -182,7 +183,7 @@ class UrlSchemeHandler(QWebEngineUrlSchemeHandler):
             if data:
                 send_reply(rq, mt, data)
             else:
-                rq.fail(rq.UrlNotFound)
+                rq.fail(QWebEngineUrlRequestJob.Error.UrlNotFound)
         elif name.startswith('mathjax/'):
             handle_mathjax_request(rq, name)
         elif not name:
@@ -192,7 +193,7 @@ class UrlSchemeHandler(QWebEngineUrlSchemeHandler):
 
     def fail_request(self, rq, fail_code=None):
         if fail_code is None:
-            fail_code = rq.UrlNotFound
+            fail_code = QWebEngineUrlRequestJob.Error.UrlNotFound
         rq.fail(fail_code)
         prints("Blocking FAKE_PROTOCOL request: {}".format(rq.requestUrl().toString()))
 
@@ -222,7 +223,7 @@ def create_profile():
         ans.installUrlSchemeHandler(QByteArray(FAKE_PROTOCOL.encode('ascii')), url_handler)
         s = ans.settings()
         s.setDefaultTextEncoding('utf-8')
-        s.setAttribute(s.LinksIncludedInFocusChain, False)
+        s.setAttribute(QWebEngineSettings.WebAttribute.LinksIncludedInFocusChain, False)
         create_profile.ans = ans
     return ans
 
@@ -250,6 +251,7 @@ class ViewerBridge(Bridge):
     ask_for_open = from_js(object)
     selection_changed = from_js(object, object)
     autoscroll_state_changed = from_js(object)
+    read_aloud_state_changed = from_js(object)
     copy_selection = from_js(object, object)
     view_image = from_js(object)
     copy_image = from_js(object)
@@ -268,6 +270,8 @@ class ViewerBridge(Bridge):
     close_prep_finished = from_js(object)
     highlights_changed = from_js(object)
     open_url = from_js(object)
+    speak_simple_text = from_js(object)
+    tts = from_js(object, object)
 
     create_view = to_js()
     start_book_load = to_js()
@@ -285,6 +289,7 @@ class ViewerBridge(Bridge):
     show_search_result = to_js()
     prepare_for_close = to_js()
     viewer_font_size_changed = to_js()
+    tts_event = to_js()
 
 
 def apply_font_settings(page_or_view):
@@ -292,35 +297,38 @@ def apply_font_settings(page_or_view):
     sd = vprefs['session_data']
     fs = sd.get('standalone_font_settings', {})
     if fs.get('serif_family'):
-        s.setFontFamily(s.SerifFont, fs.get('serif_family'))
+        s.setFontFamily(QWebEngineSettings.FontFamily.SerifFont, fs.get('serif_family'))
     else:
-        s.resetFontFamily(s.SerifFont)
+        s.resetFontFamily(QWebEngineSettings.FontFamily.SerifFont)
     if fs.get('sans_family'):
-        s.setFontFamily(s.SansSerifFont, fs.get('sans_family'))
+        s.setFontFamily(QWebEngineSettings.FontFamily.SansSerifFont, fs.get('sans_family'))
     else:
-        s.resetFontFamily(s.SansSerifFont)
+        s.resetFontFamily(QWebEngineSettings.FontFamily.SansSerifFont)
     if fs.get('mono_family'):
-        s.setFontFamily(s.FixedFont, fs.get('mono_family'))
+        s.setFontFamily(QWebEngineSettings.FontFamily.FixedFont, fs.get('mono_family'))
     else:
-        s.resetFontFamily(s.SansSerifFont)
+        s.resetFontFamily(QWebEngineSettings.FontFamily.SansSerifFont)
     sf = fs.get('standard_font') or 'serif'
     sf = getattr(s, {'serif': 'SerifFont', 'sans': 'SansSerifFont', 'mono': 'FixedFont'}[sf])
-    s.setFontFamily(s.StandardFont, s.fontFamily(sf))
-    old_minimum = s.fontSize(s.MinimumFontSize)
-    old_base = s.fontSize(s.DefaultFontSize)
-    old_fixed_base = s.fontSize(s.DefaultFixedFontSize)
+    s.setFontFamily(QWebEngineSettings.FontFamily.StandardFont, s.fontFamily(sf))
+    old_minimum = s.fontSize(QWebEngineSettings.FontSize.MinimumFontSize)
+    old_base = s.fontSize(QWebEngineSettings.FontSize.DefaultFontSize)
+    old_fixed_base = s.fontSize(QWebEngineSettings.FontSize.DefaultFixedFontSize)
     mfs = fs.get('minimum_font_size')
     if mfs is None:
-        s.resetFontSize(s.MinimumFontSize)
+        s.resetFontSize(QWebEngineSettings.FontSize.MinimumFontSize)
     else:
-        s.setFontSize(s.MinimumFontSize, mfs)
+        s.setFontSize(QWebEngineSettings.FontSize.MinimumFontSize, mfs)
     bfs = sd.get('base_font_size')
     if bfs is not None:
-        s.setFontSize(s.DefaultFontSize, bfs)
-        s.setFontSize(s.DefaultFixedFontSize, int(bfs * 13 / 16))
+        s.setFontSize(QWebEngineSettings.FontSize.DefaultFontSize, bfs)
+        s.setFontSize(QWebEngineSettings.FontSize.DefaultFixedFontSize, int(bfs * 13 / 16))
 
     font_size_changed = (old_minimum, old_base, old_fixed_base) != (
-            s.fontSize(s.MinimumFontSize), s.fontSize(s.DefaultFontSize), s.fontSize(s.DefaultFixedFontSize))
+            s.fontSize(QWebEngineSettings.FontSize.MinimumFontSize),
+            s.fontSize(QWebEngineSettings.FontSize.DefaultFontSize),
+            s.fontSize(QWebEngineSettings.FontSize.DefaultFixedFontSize)
+    )
     if font_size_changed and hasattr(page_or_view, 'execute_when_ready'):
         page_or_view.execute_when_ready('viewer_font_size_changed')
 
@@ -347,8 +355,10 @@ class WebPage(QWebEnginePage):
             QApplication.instance().clipboard().setMimeData(md)
 
     def javaScriptConsoleMessage(self, level, msg, linenumber, source_id):
-        prefix = {QWebEnginePage.InfoMessageLevel: 'INFO', QWebEnginePage.WarningMessageLevel: 'WARNING'}.get(
-                level, 'ERROR')
+        prefix = {
+            QWebEnginePage.JavaScriptConsoleMessageLevel.InfoMessageLevel: 'INFO',
+            QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel: 'WARNING'
+        }.get(level, 'ERROR')
         prints('%s: %s:%s: %s' % (prefix, source_id, linenumber, msg), file=sys.stderr)
         try:
             sys.stderr.flush()
@@ -356,13 +366,13 @@ class WebPage(QWebEnginePage):
             pass
 
     def acceptNavigationRequest(self, url, req_type, is_main_frame):
-        if req_type == self.NavigationTypeReload:
+        if req_type == QWebEngineUrlRequestInfo.NavigationType.NavigationTypeReload:
             return True
-        if req_type == self.NavigationTypeBackForward:
+        if req_type == QWebEngineUrlRequestInfo.NavigationType.NavigationTypeBackForward:
             return True
         if url.scheme() in (FAKE_PROTOCOL, 'data'):
             return True
-        if url.scheme() in ('http', 'https'):
+        if url.scheme() in ('http', 'https') and req_type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
             safe_open_url(url)
         prints('Blocking navigation request to:', url.toString())
         return False
@@ -372,9 +382,9 @@ class WebPage(QWebEnginePage):
 
     def runjs(self, src, callback=None):
         if callback is None:
-            self.runJavaScript(src, QWebEngineScript.ApplicationWorld)
+            self.runJavaScript(src, QWebEngineScript.ScriptWorldId.ApplicationWorld)
         else:
-            self.runJavaScript(src, QWebEngineScript.ApplicationWorld, callback)
+            self.runJavaScript(src, QWebEngineScript.ScriptWorldId.ApplicationWorld, callback)
 
 
 def viewer_html():
@@ -416,14 +426,14 @@ def system_colors():
     is_dark_theme = app.is_dark_theme
     pal = app.palette()
     ans = {
-        'background': pal.color(pal.Base).name(),
-        'foreground': pal.color(pal.Text).name(),
+        'background': pal.color(QPalette.ColorRole.Base).name(),
+        'foreground': pal.color(QPalette.ColorRole.Text).name(),
     }
     if is_dark_theme:
         # only override link colors for dark themes
         # since if the book specifies its own link colors
         # they will likely work well with light themes
-        ans['link'] = pal.color(pal.Link).name()
+        ans['link'] = pal.color(QPalette.ColorRole.Link).name()
     return ans
 
 
@@ -446,6 +456,7 @@ class WebView(RestartingWebEngineView):
     ask_for_open = pyqtSignal(object)
     selection_changed = pyqtSignal(object, object)
     autoscroll_state_changed = pyqtSignal(object)
+    read_aloud_state_changed = pyqtSignal(object)
     view_image = pyqtSignal(object)
     copy_image = pyqtSignal(object)
     overlay_visibility_changed = pyqtSignal(object)
@@ -470,6 +481,9 @@ class WebView(RestartingWebEngineView):
         self.callback_map = {}
         self.current_cfi = self.current_content_file = None
         RestartingWebEngineView.__init__(self, parent)
+        self.tts = TTS(self)
+        self.tts.settings_changed.connect(self.tts_settings_changed)
+        self.tts.event_received.connect(self.tts_event_received)
         self.dead_renderer_error_shown = False
         self.render_process_failed.connect(self.render_process_died)
         w = QApplication.instance().desktop().availableGeometry(self).width()
@@ -499,6 +513,7 @@ class WebView(RestartingWebEngineView):
         self.bridge.ask_for_open.connect(self.ask_for_open)
         self.bridge.selection_changed.connect(self.selection_changed)
         self.bridge.autoscroll_state_changed.connect(self.autoscroll_state_changed)
+        self.bridge.read_aloud_state_changed.connect(self.read_aloud_state_changed)
         self.bridge.view_image.connect(self.view_image)
         self.bridge.copy_image.connect(self.copy_image)
         self.bridge.overlay_visibility_changed.connect(self.overlay_visibility_changed)
@@ -514,6 +529,8 @@ class WebView(RestartingWebEngineView):
         self.bridge.close_prep_finished.connect(self.close_prep_finished)
         self.bridge.highlights_changed.connect(self.highlights_changed)
         self.bridge.open_url.connect(safe_open_url)
+        self.bridge.speak_simple_text.connect(self.tts.speak_simple_text)
+        self.bridge.tts.connect(self.tts.action)
         self.bridge.export_shortcut_map.connect(self.set_shortcut_map)
         self.shortcut_map = {}
         self.bridge.report_cfi.connect(self.call_callback)
@@ -527,13 +544,16 @@ class WebView(RestartingWebEngineView):
             self.inspector = Inspector(parent.inspector_dock.toggleViewAction(), self)
             parent.inspector_dock.setWidget(self.inspector)
 
+    def shutdown(self):
+        self.tts.shutdown()
+
     def set_shortcut_map(self, smap):
         self.shortcut_map = smap
         self.shortcuts_changed.emit(smap)
 
     def url_changed(self, url):
         if url.hasFragment():
-            frag = url.fragment(url.FullyDecoded)
+            frag = url.fragment(QUrl.ComponentFormattingOption.FullyDecoded)
             if frag and frag.startswith('bookpos='):
                 cfi = frag[len('bookpos='):]
                 if cfi:
@@ -555,18 +575,18 @@ class WebView(RestartingWebEngineView):
             ' You should try restarting the viewer.') , show=True)
 
     def event(self, event):
-        if event.type() == event.ChildPolished:
+        if event.type() == QEvent.Type.ChildPolished:
             child = event.child()
             if 'HostView' in child.metaObject().className():
                 self._host_widget = child
-                self._host_widget.setFocus(Qt.OtherFocusReason)
+                self._host_widget.setFocus(Qt.FocusReason.OtherFocusReason)
         return QWebEngineView.event(self, event)
 
     def sizeHint(self):
         return self._size_hint
 
     def refresh(self):
-        self.pageAction(QWebEnginePage.ReloadAndBypassCache).trigger()
+        self.pageAction(QWebEnginePage.WebAction.ReloadAndBypassCache).trigger()
 
     @property
     def bridge(self):
@@ -585,6 +605,7 @@ class WebView(RestartingWebEngineView):
             'show_home_page_on_ready': self.show_home_page_on_ready,
             'system_colors': system_colors(),
             'QT_VERSION': QT_VERSION,
+            'short_time_fmt': QLocale.system().timeFormat(QLocale.FormatType.ShortFormat),
         }
         self.bridge.create_view(
             vprefs['session_data'], vprefs['local_storage'], field_metadata.all_metadata(), ui_data)
@@ -598,9 +619,14 @@ class WebView(RestartingWebEngineView):
     def on_content_file_changed(self, data):
         self.current_content_file = data
 
-    def start_book_load(self, initial_position=None, highlights=None):
+    def start_book_load(self, initial_position=None, highlights=None, current_book_data=None):
         key = (set_book_path.path,)
-        self.execute_when_ready('start_book_load', key, initial_position, set_book_path.pathtoebook, highlights or [])
+        cbd = current_book_data or {}
+        book_url = None
+        if 'calibre_library_id' in cbd:
+            lid = cbd['calibre_library_id'].encode('utf-8').hex()
+            book_url = f'calibre://view-book/_hex_-{lid}/{cbd["calibre_book_id"]}/{cbd["calibre_book_fmt"]}'
+        self.execute_when_ready('start_book_load', key, initial_position, set_book_path.pathtoebook, highlights or [], book_url)
 
     def execute_when_ready(self, action, *args):
         if self.bridge.ready:
@@ -691,7 +717,13 @@ class WebView(RestartingWebEngineView):
 
     def highlight_action(self, uuid, which):
         self.execute_when_ready('highlight_action', uuid, which)
-        self.setFocus(Qt.OtherFocusReason)
+        self.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def generic_action(self, which, data):
         self.execute_when_ready('generic_action', which, data)
+
+    def tts_event_received(self, which, data):
+        self.execute_when_ready('tts_event', which, data)
+
+    def tts_settings_changed(self, ui_settings):
+        self.execute_when_ready('tts_event', 'configured', ui_settings)

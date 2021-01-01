@@ -7,7 +7,7 @@ __copyright__ = '2008, Kovid Goyal <kovid at kovidgoyal.net>'
 import sys, gc, weakref
 
 from PyQt5.Qt import (QMainWindow, QTimer, QAction, QMenu, QMenuBar, QIcon,
-                      QObject)
+                      QObject, QKeySequence)
 from calibre.utils.config import OptionParser
 from calibre.gui2 import error_dialog
 from calibre import prints, as_unicode, prepare_string_for_xml
@@ -107,8 +107,8 @@ class MainWindow(QMainWindow):
     def get_menubar_actions(cls):
         preferences_action = QAction(QIcon(I('config.png')), _('&Preferences'), None)
         quit_action        = QAction(QIcon(I('window-close.png')), _('&Quit'), None)
-        preferences_action.setMenuRole(QAction.PreferencesRole)
-        quit_action.setMenuRole(QAction.QuitRole)
+        preferences_action.setMenuRole(QAction.MenuRole.PreferencesRole)
+        quit_action.setMenuRole(QAction.MenuRole.QuitRole)
         return preferences_action, quit_action
 
     @property
@@ -165,7 +165,7 @@ def clone_menu(menu):
             ans.setSeparator(True)
             return ans
         sc = ac.shortcut()
-        sc = '' if sc.isEmpty() else sc.toString(sc.NativeText)
+        sc = '' if sc.isEmpty() else sc.toString(QKeySequence.SequenceFormat.NativeText)
         text = ac.text()
         if '\t' not in text:
             text += '\t' + sc

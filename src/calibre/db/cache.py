@@ -171,6 +171,10 @@ class Cache(object):
         return self.backend.library_id
 
     @property
+    def dbpath(self):
+        return self.backend.dbpath
+
+    @property
     def safe_read_lock(self):
         ''' A safe read lock is a lock that does nothing if the thread already
         has a write lock, otherwise it acquires a read lock. This is necessary
@@ -1904,6 +1908,14 @@ class Cache(object):
         self.fields['ondevice'].clear_caches()
         self.clear_search_caches()
         self.clear_composite_caches()
+
+    @read_api
+    def books_matching_device_book(self, lpath):
+        ans = set()
+        for book_id, (_, _, _, _, lpaths) in self.fields['ondevice'].cache.items():
+            if lpath in lpaths:
+                ans.add(book_id)
+        return ans
 
     @read_api
     def tags_older_than(self, tag, delta=None, must_have_tag=None, must_have_authors=None):

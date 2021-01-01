@@ -72,7 +72,7 @@ def _checkExists(filename):
 
 def _formatXml(root):
     """ A helper to make the LRS output look nicer. """
-    for elem in root.getiterator():
+    for elem in root.iter():
         if len(elem) > 0 and (not elem.text or not elem.text.strip()):
             elem.text = "\n"
         if not elem.tail or not elem.tail.strip():
@@ -577,7 +577,7 @@ class Book(Delegator):
                 if 'baselineskip' in span.attrs:
                     span.attrs['baselineskip'] = rescale(span.attrs['baselineskip'])
 
-        text_styles = set(tb.textStyle for tb in text_blocks)
+        text_styles = (tb.textStyle for tb in text_blocks)
         for ts in text_styles:
             ts.attrs['fontsize'] = rescale(ts.attrs['fontsize'])
             ts.attrs['baselineskip'] = rescale(ts.attrs['baselineskip'])

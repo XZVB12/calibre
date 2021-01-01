@@ -23,8 +23,8 @@ def render_svg(widget, path):
         sz = rend.defaultSize()
         h = (max_available_height() - 50)
         w = int(h * sz.height() / float(sz.width()))
-        pd = QImage(w * dpr, h * dpr, QImage.Format_RGB32)
-        pd.fill(Qt.white)
+        pd = QImage(w * dpr, h * dpr, QImage.Format.Format_RGB32)
+        pd.fill(Qt.GlobalColor.white)
         p = QPainter(pd)
         rend.render(p)
         p.end()
@@ -37,8 +37,8 @@ class ImageView(QDialog):
 
     def __init__(self, parent, current_img, current_url, geom_name='viewer_image_popup_geometry'):
         QDialog.__init__(self)
-        self.setWindowFlag(Qt.WindowMinimizeButtonHint)
-        self.setWindowFlag(Qt.WindowMaximizeButtonHint)
+        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
         dw = QApplication.instance().desktop()
         self.avail_geom = dw.availableGeometry(parent if parent is not None else self)
         self.current_img = current_img
@@ -47,22 +47,22 @@ class ImageView(QDialog):
         self.geom_name = geom_name
 
         self.label = l = QLabel(self)
-        l.setBackgroundRole(QPalette.Text if QApplication.instance().is_dark_theme else QPalette.Base)
-        l.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        l.setBackgroundRole(QPalette.ColorRole.Text if QApplication.instance().is_dark_theme else QPalette.ColorRole.Base)
+        l.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         l.setScaledContents(True)
 
         self.scrollarea = sa = QScrollArea()
-        sa.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        sa.setBackgroundRole(QPalette.Dark)
+        sa.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        sa.setBackgroundRole(QPalette.ColorRole.Dark)
         sa.setWidget(l)
 
-        self.bb = bb = QDialogButtonBox(QDialogButtonBox.Close)
+        self.bb = bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
-        self.zi_button = zi = bb.addButton(_('Zoom &in'), bb.ActionRole)
-        self.zo_button = zo = bb.addButton(_('Zoom &out'), bb.ActionRole)
-        self.save_button = so = bb.addButton(_('&Save as'), bb.ActionRole)
-        self.rotate_button = ro = bb.addButton(_('&Rotate'), bb.ActionRole)
+        self.zi_button = zi = bb.addButton(_('Zoom &in'), QDialogButtonBox.ButtonRole.ActionRole)
+        self.zo_button = zo = bb.addButton(_('Zoom &out'), QDialogButtonBox.ButtonRole.ActionRole)
+        self.save_button = so = bb.addButton(_('&Save as'), QDialogButtonBox.ButtonRole.ActionRole)
+        self.rotate_button = ro = bb.addButton(_('&Rotate'), QDialogButtonBox.ButtonRole.ActionRole)
         zi.setIcon(QIcon(I('plus.png')))
         zo.setIcon(QIcon(I('minus.png')))
         so.setIcon(QIcon(I('save.png')))
@@ -214,7 +214,7 @@ class ImagePopup(object):
             return
         d = ImageView(self.parent, self.current_img, self.current_url)
         self.dialogs.append(d)
-        d.finished.connect(self.cleanup, type=Qt.QueuedConnection)
+        d.finished.connect(self.cleanup, type=Qt.ConnectionType.QueuedConnection)
         d()
 
     def cleanup(self):

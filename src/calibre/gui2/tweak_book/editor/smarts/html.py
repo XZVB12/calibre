@@ -213,7 +213,7 @@ def find_closing_tag(tag, max_tags=sys.maxsize):
 
 def select_tag(cursor, tag):
     cursor.setPosition(tag.start_block.position() + tag.start_offset)
-    cursor.setPosition(tag.end_block.position() + tag.end_offset + 1, cursor.KeepAnchor)
+    cursor.setPosition(tag.end_block.position() + tag.end_offset + 1, QTextCursor.MoveMode.KeepAnchor)
     return unicode_type(cursor.selectedText()).replace(PARAGRAPH_SEPARATOR, '\n').rstrip('\0')
 
 
@@ -293,7 +293,7 @@ def set_style_property(tag, property_name, value, editor):
             return error_dialog(editor, _('Invalid markup'), _(
                 'The current block tag has an existing unclosed style attribute. Run the Fix HTML'
                 ' tool first.'), show=True)
-        c.setPosition(end_block.position() + end_offset, c.KeepAnchor)
+        c.setPosition(end_block.position() + end_offset, QTextCursor.MoveMode.KeepAnchor)
         d = parseStyle(editor.selected_text_from_cursor(c)[1:-1])
         d.setProperty(property_name, value)
         c.insertText('"%s"' % css(d))
@@ -321,14 +321,14 @@ class Smarts(NullSmarts):
         def add_tag(tag):
             a = QTextEdit.ExtraSelection()
             a.cursor, a.format = editor.textCursor(), editor.match_paren_format
-            a.cursor.setPosition(tag.start_block.position()), a.cursor.movePosition(a.cursor.EndOfBlock, a.cursor.KeepAnchor)
+            a.cursor.setPosition(tag.start_block.position()), a.cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor)
             text = unicode_type(a.cursor.selectedText())
             start_pos = utf16_length(text[:tag.start_offset])
-            a.cursor.setPosition(tag.end_block.position()), a.cursor.movePosition(a.cursor.EndOfBlock, a.cursor.KeepAnchor)
+            a.cursor.setPosition(tag.end_block.position()), a.cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor)
             text = unicode_type(a.cursor.selectedText())
             end_pos = utf16_length(text[:tag.end_offset + 1])
             a.cursor.setPosition(tag.start_block.position() + start_pos)
-            a.cursor.setPosition(tag.end_block.position() + end_pos, a.cursor.KeepAnchor)
+            a.cursor.setPosition(tag.end_block.position() + end_pos, QTextCursor.MoveMode.KeepAnchor)
             ans.append(a)
 
         c = editor.textCursor()
@@ -360,7 +360,7 @@ class Smarts(NullSmarts):
             return False
         c = editor.textCursor()
         c.setPosition(start.start_block.position() + start.end_offset + 1)
-        c.setPosition(end.start_block.position() + end.start_offset, c.KeepAnchor)
+        c.setPosition(end.start_block.position() + end.start_offset, QTextCursor.MoveMode.KeepAnchor)
         editor.setTextCursor(c)
         return True
 
@@ -373,7 +373,7 @@ class Smarts(NullSmarts):
 
         def erase_tag(tag):
             c.setPosition(tag.start_block.position() + tag.start_offset)
-            c.setPosition(tag.end_block.position() + tag.end_offset + 1, c.KeepAnchor)
+            c.setPosition(tag.end_block.position() + tag.end_offset + 1, QTextCursor.MoveMode.KeepAnchor)
             c.removeSelectedText()
 
         if self.last_matched_closing_tag:
@@ -416,7 +416,7 @@ class Smarts(NullSmarts):
         ensure_not_within_tag_definition(cursor, forward=False)
         right = cursor.position()
 
-        cursor.setPosition(left), cursor.setPosition(right, cursor.KeepAnchor)
+        cursor.setPosition(left), cursor.setPosition(right, QTextCursor.MoveMode.KeepAnchor)
         if update:
             editor.setTextCursor(cursor)
         return editor.selected_text_from_cursor(cursor)
@@ -425,13 +425,14 @@ class Smarts(NullSmarts):
         template = template or DEFAULT_LINK_TEMPLATE
         template = template.replace('_TARGET_', prepare_string_for_xml(target, True))
         offset = template.find('_TEXT_')
+        template = template.replace('_TEXT_', text or '')
         editor.highlighter.join()
         c = editor.textCursor()
         if c.hasSelection():
             c.insertText('')  # delete any existing selected text
         ensure_not_within_tag_definition(c)
         p = c.position() + offset
-        c.insertText(template.replace('_TEXT_', text or ''))
+        c.insertText(template)
         c.setPosition(p)  # ensure cursor is positioned inside the newly created tag
         editor.setTextCursor(c)
 
@@ -580,7 +581,7 @@ class Smarts(NullSmarts):
         if ctag is None:
             return None
         c.setPosition(tag.end_block.position() + tag.end_offset + 1)
-        c.setPosition(ctag.start_block.position() + ctag.start_offset, c.KeepAnchor)
+        c.setPosition(ctag.start_block.position() + ctag.start_offset, QTextCursor.MoveMode.KeepAnchor)
         return c
 
     def set_text_alignment(self, editor, value):
@@ -620,12 +621,12 @@ class Smarts(NullSmarts):
 
         if tprefs['replace_entities_as_typed'] and (
                 ';' in ev_text or
-                (key == Qt.Key_Semicolon and no_modifiers(ev, Qt.ControlModifier, Qt.AltModifier))
+                (key == Qt.Key.Key_Semicolon and no_modifiers(ev, Qt.KeyboardModifier.ControlModifier, Qt.KeyboardModifier.AltModifier))
         ):
             self.replace_possible_entity(editor)
             return True
 
-        if key in (Qt.Key_Enter, Qt.Key_Return) and no_modifiers(ev, Qt.ControlModifier, Qt.AltModifier):
+        if key in (Qt.Key.Key_Enter, Qt.Key.Key_Return) and no_modifiers(ev, Qt.KeyboardModifier.ControlModifier, Qt.KeyboardModifier.AltModifier):
             ls = get_leading_whitespace_on_block(editor)
             if ls == ' ':
                 ls = ''  # Do not consider a single leading space as indentation
@@ -644,7 +645,7 @@ class Smarts(NullSmarts):
             editor.textCursor().insertText('\n' + ls)
             return True
 
-        if key == Qt.Key_Slash:
+        if key == Qt.Key.Key_Slash:
             cursor, text = get_text_before_cursor(editor)
             if not text.rstrip().endswith('<'):
                 return False
@@ -660,21 +661,21 @@ class Smarts(NullSmarts):
             if self.auto_close_tag(editor):
                 return True
 
-        if key == Qt.Key_Home and smart_home(editor, ev):
+        if key == Qt.Key.Key_Home and smart_home(editor, ev):
             return True
 
-        if key == Qt.Key_Tab and smart_tab(editor, ev):
+        if key == Qt.Key.Key_Tab and smart_tab(editor, ev):
             return True
 
-        if key == Qt.Key_Backspace and smart_backspace(editor, ev):
+        if key == Qt.Key.Key_Backspace and smart_backspace(editor, ev):
             return True
 
-        if key in (Qt.Key_BraceLeft, Qt.Key_BraceRight):
+        if key in (Qt.Key.Key_BraceLeft, Qt.Key.Key_BraceRight):
             mods = ev.modifiers()
-            if int(mods & Qt.ControlModifier):
-                if self.jump_to_enclosing_tag(editor, key == Qt.Key_BraceLeft):
+            if int(mods & Qt.KeyboardModifier.ControlModifier):
+                if self.jump_to_enclosing_tag(editor, key == Qt.Key.Key_BraceLeft):
                     return True
-        if key == Qt.Key_T and int(ev.modifiers() & (Qt.ControlModifier | Qt.AltModifier)):
+        if key == Qt.Key.Key_T and int(ev.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)):
             return self.select_tag_contents(editor)
 
         return False
@@ -682,14 +683,14 @@ class Smarts(NullSmarts):
     def replace_possible_entity(self, editor):
         c = editor.textCursor()
         c.insertText(';')
-        c.setPosition(c.position() - min(c.positionInBlock(), 10), c.KeepAnchor)
+        c.setPosition(c.position() - min(c.positionInBlock(), 10), QTextCursor.MoveMode.KeepAnchor)
         text = editor.selected_text_from_cursor(c)
         m = entity_pat.search(text)
         if m is not None:
             ent = m.group()
             repl = xml_entity_to_unicode(m)
             if repl != ent:
-                c.setPosition(c.position() + m.start(), c.KeepAnchor)
+                c.setPosition(c.position() + m.start(), QTextCursor.MoveMode.KeepAnchor)
                 c.insertText(repl)
                 editor.setTextCursor(c)
 
@@ -727,7 +728,7 @@ class Smarts(NullSmarts):
             return
         tagname = boundary.name.lower()
         startpos = oblock.position() + boundary.offset
-        c.setPosition(c.position()), c.setPosition(startpos, c.KeepAnchor)
+        c.setPosition(c.position()), c.setPosition(startpos, QTextCursor.MoveMode.KeepAnchor)
         text = c.selectedText()
         m = self.complete_attr_pat.search(text)
         if m is None:
@@ -796,7 +797,7 @@ class Smarts(NullSmarts):
                 c.setPosition(start)
                 for b in boundaries:
                     if in_text:
-                        c.setPosition(start + b.offset, c.KeepAnchor)
+                        c.setPosition(start + b.offset, QTextCursor.MoveMode.KeepAnchor)
                         if c.hasSelection():
                             append(c.selectedText(), c.anchor())
                     in_text = not b.is_start
@@ -804,7 +805,7 @@ class Smarts(NullSmarts):
                 if in_text:
                     # Add remaining text in block
                     c.setPosition(block.position() + boundaries[-1].offset + 1)
-                    c.movePosition(c.EndOfBlock, c.KeepAnchor)
+                    c.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor)
                     if c.hasSelection():
                         append(c.selectedText() + '\n', c.anchor())
             block = block.next()

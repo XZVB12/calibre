@@ -15,9 +15,9 @@ from polyglot.builtins import iteritems, unicode_type, zip, range, as_bytes, map
 
 import regex
 from PyQt5.Qt import (
-    QSplitter, QApplication, QTimer,
+    QSplitter, QApplication, QTimer, QEvent,
     QTextCursor, QTextCharFormat, Qt, QRect, QPainter, QPalette, QPen, QBrush,
-    QColor, QTextLayout, QCursor, QFont, QSplitterHandle, QPainterPath,
+    QColor, QTextLayout, QCursor, QFont, QSplitterHandle, QPainterPath, QPlainTextEdit,
     QHBoxLayout, QWidget, QScrollBar, QEventLoop, pyqtSignal, QImage, QPixmap,
     QMenu, QIcon, QKeySequence)
 
@@ -36,7 +36,7 @@ Change = namedtuple('Change', 'ltop lbot rtop rbot kind')
 class BusyCursor(object):
 
     def __enter__(self):
-        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
 
     def __exit__(self, *args):
         QApplication.restoreOverrideCursor()
@@ -102,12 +102,12 @@ class TextBrowser(PlainTextEdit):  # {{{
         self.setFrameStyle(0)
         self.show_open_in_editor = show_open_in_editor
         self.side_margin = 0
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
-        self.setFocusPolicy(Qt.NoFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.right = right
         self.setReadOnly(True)
-        self.setLineWrapMode(self.WidgetWidth)
+        self.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         font = self.font()
         ff = tprefs['editor_font_family']
         if ff is None:
@@ -122,30 +122,30 @@ class TextBrowser(PlainTextEdit):  # {{{
         font.setBold(True)
         theme = get_theme(tprefs['editor_theme'])
         pal = self.palette()
-        pal.setColor(pal.Base, theme_color(theme, 'Normal', 'bg'))
-        pal.setColor(pal.AlternateBase, theme_color(theme, 'CursorLine', 'bg'))
-        pal.setColor(pal.Text, theme_color(theme, 'Normal', 'fg'))
-        pal.setColor(pal.Highlight, theme_color(theme, 'Visual', 'bg'))
-        pal.setColor(pal.HighlightedText, theme_color(theme, 'Visual', 'fg'))
+        pal.setColor(QPalette.ColorRole.Base, theme_color(theme, 'Normal', 'bg'))
+        pal.setColor(QPalette.ColorRole.AlternateBase, theme_color(theme, 'CursorLine', 'bg'))
+        pal.setColor(QPalette.ColorRole.Text, theme_color(theme, 'Normal', 'fg'))
+        pal.setColor(QPalette.ColorRole.Highlight, theme_color(theme, 'Visual', 'bg'))
+        pal.setColor(QPalette.ColorRole.HighlightedText, theme_color(theme, 'Visual', 'fg'))
         self.setPalette(pal)
-        self.viewport().setCursor(Qt.ArrowCursor)
+        self.viewport().setCursor(Qt.CursorShape.ArrowCursor)
         self.line_number_area = LineNumbers(self)
         self.blockCountChanged[int].connect(self.update_line_number_area_width)
         self.updateRequest.connect(self.update_line_number_area)
         self.line_number_palette = pal = QPalette()
-        pal.setColor(pal.Base, theme_color(theme, 'LineNr', 'bg'))
-        pal.setColor(pal.Text, theme_color(theme, 'LineNr', 'fg'))
-        pal.setColor(pal.BrightText, theme_color(theme, 'LineNrC', 'fg'))
+        pal.setColor(QPalette.ColorRole.Base, theme_color(theme, 'LineNr', 'bg'))
+        pal.setColor(QPalette.ColorRole.Text, theme_color(theme, 'LineNr', 'fg'))
+        pal.setColor(QPalette.ColorRole.BrightText, theme_color(theme, 'LineNrC', 'fg'))
         self.line_number_map = LineNumberMap()
         self.search_header_pos = 0
         self.changes, self.headers, self.images = [], [], OrderedDict()
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff), self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff), self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.diff_backgrounds = {
             'replace' : theme_color(theme, 'DiffReplace', 'bg'),
             'insert'  : theme_color(theme, 'DiffInsert', 'bg'),
             'delete'  : theme_color(theme, 'DiffDelete', 'bg'),
             'replacereplace': theme_color(theme, 'DiffReplaceReplace', 'bg'),
-            'boundary': QBrush(theme_color(theme, 'Normal', 'fg'), Qt.Dense7Pattern),
+            'boundary': QBrush(theme_color(theme, 'Normal', 'fg'), Qt.BrushStyle.Dense7Pattern),
         }
         self.diff_foregrounds = {
             'replace' : theme_color(theme, 'DiffReplace', 'fg'),
@@ -168,7 +168,7 @@ class TextBrowser(PlainTextEdit):  # {{{
         a = m.addAction
         i = unicode_type(self.textCursor().selectedText()).rstrip('\0')
         if i:
-            a(QIcon(I('edit-copy.png')), _('Copy to clipboard'), self.copy).setShortcut(QKeySequence.Copy)
+            a(QIcon(I('edit-copy.png')), _('Copy to clipboard'), self.copy).setShortcut(QKeySequence.StandardKey.Copy)
 
         if len(self.changes) > 0:
             a(QIcon(I('arrow-up.png')), _('Previous change'), partial(self.next_change.emit, -1))
@@ -240,11 +240,11 @@ class TextBrowser(PlainTextEdit):  # {{{
             if num in headers:
                 self.search_header_pos = start + length
             else:
-                c.setPosition(c.position() + length, c.KeepAnchor)
+                c.setPosition(c.position() + length, QTextCursor.MoveMode.KeepAnchor)
                 self.search_header_pos = 0
             if reverse:
                 pos, anchor = c.position(), c.anchor()
-                c.setPosition(pos), c.setPosition(anchor, c.KeepAnchor)
+                c.setPosition(pos), c.setPosition(anchor, QTextCursor.MoveMode.KeepAnchor)
             self.setTextCursor(c)
             self.centerCursor()
             self.scrolled.emit()
@@ -260,7 +260,7 @@ class TextBrowser(PlainTextEdit):  # {{{
         del self.headers[:]
         self.images.clear()
         self.search_header_pos = 0
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
     def update_line_number_area_width(self, block_count=0):
         self.side_margin = self.line_number_area_width()
@@ -294,13 +294,13 @@ class TextBrowser(PlainTextEdit):  # {{{
 
     def paint_line_numbers(self, ev):
         painter = QPainter(self.line_number_area)
-        painter.fillRect(ev.rect(), self.line_number_palette.color(QPalette.Base))
+        painter.fillRect(ev.rect(), self.line_number_palette.color(QPalette.ColorRole.Base))
 
         block = self.firstVisibleBlock()
         num = block.blockNumber()
         top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
         bottom = top + int(self.blockBoundingRect(block).height())
-        painter.setPen(self.line_number_palette.color(QPalette.Text))
+        painter.setPen(self.line_number_palette.color(QPalette.ColorRole.Text))
         change_starts = {x[0] for x in self.changes}
 
         while block.isValid() and top <= ev.rect().bottom():
@@ -313,16 +313,16 @@ class TextBrowser(PlainTextEdit):  # {{{
                     f = QFont(self.font())
                     f.setBold(True)
                     painter.setFont(f)
-                    painter.setPen(self.line_number_palette.color(QPalette.BrightText))
+                    painter.setPen(self.line_number_palette.color(QPalette.ColorRole.BrightText))
                 if text == '-':
                     painter.drawLine(r.left() + 2, (top + bottom)//2, r.right() - 2, (top + bottom)//2)
                 else:
                     if self.right:
                         painter.drawText(r.left() + 3, top, r.right(), self.fontMetrics().height(),
-                                Qt.AlignLeft, text)
+                                Qt.AlignmentFlag.AlignLeft, text)
                     else:
                         painter.drawText(r.left() + 2, top, r.right() - 5, self.fontMetrics().height(),
-                                Qt.AlignRight, text)
+                                Qt.AlignmentFlag.AlignRight, text)
                 if is_start:
                     painter.restore()
             block = block.next()
@@ -334,7 +334,7 @@ class TextBrowser(PlainTextEdit):  # {{{
         w = self.viewport().rect().width()
         painter = QPainter(self.viewport())
         painter.setClipRect(event.rect())
-        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         floor = event.rect().bottom()
         ceiling = event.rect().top()
         fv = self.firstVisibleBlock().blockNumber()
@@ -353,7 +353,7 @@ class TextBrowser(PlainTextEdit):  # {{{
             if min(y_top, y_bot) > floor:
                 break
             painter.setFont(self.heading_font)
-            br = painter.drawText(3, y_top, w, y_bot - y_top - 5, Qt.TextSingleLine, text)
+            br = painter.drawText(3, y_top, w, y_bot - y_top - 5, Qt.TextFlag.TextSingleLine, text)
             painter.setPen(QPen(self.palette().text(), 2))
             painter.drawLine(0, br.bottom()+3, w, br.bottom()+3)
 
@@ -401,8 +401,8 @@ class DiffSplitHandle(QSplitterHandle):  # {{{
     wheel_event = pyqtSignal(object)
 
     def event(self, ev):
-        if ev.type() in (ev.HoverEnter, ev.HoverLeave):
-            self.hover = ev.type() == ev.HoverEnter
+        if ev.type() in (QEvent.Type.HoverEnter, QEvent.Type.HoverLeave):
+            self.hover = ev.type() == QEvent.Type.HoverEnter
         return QSplitterHandle.event(self, ev)
 
     def paintEvent(self, event):
@@ -412,7 +412,7 @@ class DiffSplitHandle(QSplitterHandle):  # {{{
         painter.setClipRect(event.rect())
         w = self.width()
         h = self.height()
-        painter.setRenderHints(QPainter.Antialiasing, True)
+        painter.setRenderHints(QPainter.RenderHint.Antialiasing, True)
 
         C = 16  # Curve factor.
 
@@ -460,7 +460,7 @@ class DiffSplitHandle(QSplitterHandle):  # {{{
 
         for kind, path, aa in sorted(lines, key=lambda x:{'replace':0}.get(x[0], 1)):
             painter.setPen(left.diff_foregrounds[kind])
-            painter.setRenderHints(QPainter.Antialiasing, aa)
+            painter.setRenderHints(QPainter.RenderHint.Antialiasing, aa)
             painter.drawPath(path)
 
         painter.setFont(left.heading_font)
@@ -476,11 +476,11 @@ class DiffSplitHandle(QSplitterHandle):  # {{{
                 continue
             if min(ly_top, ly_bot, ry_top, ry_bot) > h:
                 break
-            ly = painter.boundingRect(3, ly_top, left.width(), ly_bot - ly_top - 5, Qt.TextSingleLine, text).bottom() + 3
-            ry = painter.boundingRect(3, ry_top, right.width(), ry_bot - ry_top - 5, Qt.TextSingleLine, text).bottom() + 3
+            ly = painter.boundingRect(3, ly_top, left.width(), ly_bot - ly_top - 5, Qt.TextFlag.TextSingleLine, text).bottom() + 3
+            ry = painter.boundingRect(3, ry_top, right.width(), ry_bot - ry_top - 5, Qt.TextFlag.TextSingleLine, text).bottom() + 3
             line = create_line(ly, ry)
             painter.setPen(QPen(left.palette().text(), 2))
-            painter.setRenderHints(QPainter.Antialiasing, ly != ry)
+            painter.setRenderHints(QPainter.RenderHint.Antialiasing, ly != ry)
             painter.drawPath(line)
 
         painter.end()
@@ -522,7 +522,7 @@ class DiffSplit(QSplitter):  # {{{
     def finalize(self):
         for v in (self.left, self.right):
             c = v.textCursor()
-            c.movePosition(c.Start)
+            c.movePosition(QTextCursor.MoveOperation.Start)
             v.setTextCursor(c)
         self.update()
 
@@ -536,14 +536,14 @@ class DiffSplit(QSplitter):  # {{{
         self.right.headers.append((self.right.blockCount() - 1, right_name))
         for v in (self.left, self.right):
             c = v.textCursor()
-            c.movePosition(c.End)
+            c.movePosition(QTextCursor.MoveOperation.End)
             (c.insertBlock(), c.insertBlock(), c.insertBlock())
 
         with BusyCursor():
             if is_identical:
                 for v in (self.left, self.right):
                     c = v.textCursor()
-                    c.movePosition(c.End)
+                    c.movePosition(QTextCursor.MoveOperation.End)
                     c.insertText('[%s]\n\n' % _('The files are identical'))
             elif left_name != right_name and not left_text and not right_text:
                 self.add_text_diff(_('[This file was renamed to %s]') % right_name, _('[This file was renamed from %s]') % left_name, context, None)
@@ -568,20 +568,20 @@ class DiffSplit(QSplitter):  # {{{
                 dpr = self.devicePixelRatioF()
             except AttributeError:
                 dpr = self.devicePixelRatio()
-            i = QImage(200, 150, QImage.Format_ARGB32)
+            i = QImage(200, 150, QImage.Format.Format_ARGB32)
             i.setDevicePixelRatio(dpr)
-            i.fill(Qt.white)
+            i.fill(Qt.GlobalColor.white)
             p = QPainter(i)
             r = i.rect().adjusted(10, 10, -10, -10)
-            n = QPen(Qt.DashLine)
-            n.setColor(Qt.black)
+            n = QPen(Qt.PenStyle.DashLine)
+            n.setColor(Qt.GlobalColor.black)
             p.setPen(n)
             p.drawRect(r)
-            p.setPen(Qt.black)
+            p.setPen(Qt.GlobalColor.black)
             f = self.font()
             f.setPixelSize(20)
             p.setFont(f)
-            p.drawText(r.adjusted(10, 0, -10, 0), Qt.AlignCenter | Qt.TextWordWrap, _('Image could not be rendered'))
+            p.drawText(r.adjusted(10, 0, -10, 0), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, _('Image could not be rendered'))
             p.end()
             self._failed_img = QPixmap.fromImage(i)
         return self._failed_img
@@ -602,13 +602,13 @@ class DiffSplit(QSplitter):  # {{{
         change = []
         # Let any initial resizing of the window finish in case this is the
         # first diff, to avoid the expensive resize calculation later
-        QApplication.processEvents(QEventLoop.ExcludeUserInputEvents | QEventLoop.ExcludeSocketNotifiers)
+        QApplication.processEvents(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents | QEventLoop.ProcessEventsFlag.ExcludeSocketNotifiers)
         for v, img, size in ((self.left, left_img, len(left_data)), (self.right, right_img, len(right_data))):
             c = v.textCursor()
-            c.movePosition(c.End)
+            c.movePosition(QTextCursor.MoveOperation.End)
             start = c.block().blockNumber()
             lines, w = self.get_lines_for_image(img, v)
-            c.movePosition(c.StartOfBlock)
+            c.movePosition(QTextCursor.MoveOperation.StartOfBlock)
             if size > 0:
                 c.beginEditBlock()
                 c.insertText(_('Size: {0} Resolution: {1}x{2}').format(human_readable(size), img.width(), img.height()))
@@ -621,7 +621,7 @@ class DiffSplit(QSplitter):  # {{{
         change.append('replace' if left_data and right_data else 'delete' if left_data else 'insert')
         self.left.changes.append((change[0], change[1], change[-1]))
         self.right.changes.append((change[2], change[3], change[-1]))
-        QApplication.processEvents(QEventLoop.ExcludeUserInputEvents | QEventLoop.ExcludeSocketNotifiers)
+        QApplication.processEvents(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents | QEventLoop.ProcessEventsFlag.ExcludeSocketNotifiers)
 
     def resized(self):
         ' Resize images to fit in new view size and adjust all line number references accordingly '
@@ -638,12 +638,12 @@ class DiffSplit(QSplitter):  # {{{
                 top, bot, kind = v.changes[i]
                 c = QTextCursor(v.document().findBlockByNumber(top+1))
                 c.beginEditBlock()
-                c.movePosition(c.StartOfBlock)
+                c.movePosition(QTextCursor.MoveOperation.StartOfBlock)
                 if delta > 0:
                     for _ in range(delta):
                         c.insertBlock()
                 else:
-                    c.movePosition(c.NextBlock, c.KeepAnchor, -delta)
+                    c.movePosition(QTextCursor.MoveOperation.NextBlock, QTextCursor.MoveMode.KeepAnchor, -delta)
                     c.removeSelectedText()
                 c.endEditBlock()
                 v.images[top] = (img, w, lines)
@@ -678,7 +678,7 @@ class DiffSplit(QSplitter):  # {{{
             if len(left_text) == len(right_text) and left_text == right_text:
                 for v in (self.left, self.right):
                     c = v.textCursor()
-                    c.movePosition(c.End)
+                    c.movePosition(QTextCursor.MoveOperation.End)
                     c.insertText('[%s]\n\n' % _('The files are identical after beautifying'))
                 return
 
@@ -690,7 +690,7 @@ class DiffSplit(QSplitter):  # {{{
         left_highlight, right_highlight = get_highlighter(self.left, left_text, syntax), get_highlighter(self.right, right_text, syntax)
         cl, cr = self.left_cursor, self.right_cursor = self.left.textCursor(), self.right.textCursor()
         cl.beginEditBlock(), cr.beginEditBlock()
-        cl.movePosition(cl.End), cr.movePosition(cr.End)
+        cl.movePosition(QTextCursor.MoveOperation.End), cr.movePosition(QTextCursor.MoveOperation.End)
         self.left_insert = partial(self.do_insert, cl, left_highlight, self.left.line_number_map)
         self.right_insert = partial(self.do_insert, cr, right_highlight, self.right.line_number_map)
 
@@ -699,7 +699,7 @@ class DiffSplit(QSplitter):  # {{{
         if context is None:
             for tag, alo, ahi, blo, bhi in cruncher.get_opcodes():
                 getattr(self, tag)(alo, ahi, blo, bhi)
-                QApplication.processEvents(QEventLoop.ExcludeUserInputEvents | QEventLoop.ExcludeSocketNotifiers)
+                QApplication.processEvents(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents | QEventLoop.ProcessEventsFlag.ExcludeSocketNotifiers)
         else:
             def insert_boundary():
                 self.changes.append(Change(
@@ -714,7 +714,7 @@ class DiffSplit(QSplitter):  # {{{
                     if j == 0 and (i > 0 or min(alo, blo) > 0):
                         insert_boundary()
                     getattr(self, tag)(alo, ahi, blo, bhi)
-                    QApplication.processEvents(QEventLoop.ExcludeUserInputEvents | QEventLoop.ExcludeSocketNotifiers)
+                    QApplication.processEvents(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents | QEventLoop.ProcessEventsFlag.ExcludeSocketNotifiers)
                 cl.insertBlock(), cr.insertBlock()
             if ahi < len(left_lines) - 1 or bhi < len(right_lines) - 1:
                 insert_boundary()
@@ -1075,19 +1075,19 @@ class DiffView(QWidget):  # {{{
     def handle_key(self, ev):
         amount, d = None, 1
         key = ev.key()
-        if key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_J, Qt.Key_K):
+        if key in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_J, Qt.Key.Key_K):
             amount = self.scrollbar.singleStep()
-            if key in (Qt.Key_Up, Qt.Key_K):
+            if key in (Qt.Key.Key_Up, Qt.Key.Key_K):
                 d = -1
-        elif key in (Qt.Key_PageUp, Qt.Key_PageDown):
+        elif key in (Qt.Key.Key_PageUp, Qt.Key.Key_PageDown):
             amount = self.scrollbar.pageStep()
-            if key in (Qt.Key_PageUp,):
+            if key in (Qt.Key.Key_PageUp,):
                 d = -1
-        elif key in (Qt.Key_Home, Qt.Key_End):
-            self.scrollbar.setValue(0 if key == Qt.Key_Home else self.scrollbar.maximum())
+        elif key in (Qt.Key.Key_Home, Qt.Key.Key_End):
+            self.scrollbar.setValue(0 if key == Qt.Key.Key_Home else self.scrollbar.maximum())
             return True
-        elif key in (Qt.Key_N, Qt.Key_P):
-            self.next_change(1 if key == Qt.Key_N else -1)
+        elif key in (Qt.Key.Key_N, Qt.Key.Key_P):
+            self.next_change(1 if key == Qt.Key.Key_N else -1)
             return True
 
         if amount is not None:

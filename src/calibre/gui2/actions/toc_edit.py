@@ -38,9 +38,9 @@ class ChooseFormat(QDialog):  # {{{
             self.buttons.append(b)
         self.formats = gprefs.get('edit_toc_last_selected_formats', ['EPUB',])
         bb = self.bb = QDialogButtonBox(
-            QDialogButtonBox.Ok|QDialogButtonBox.Cancel)
+            QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         bb.addButton(_('&All formats'),
-                     bb.ActionRole).clicked.connect(self.do_all)
+                     QDialogButtonBox.ButtonRole.ActionRole).clicked.connect(self.do_all)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         l.addWidget(bb, l.rowCount(), 0, 1, -1)
@@ -134,7 +134,7 @@ class ToCEditAction(InterfaceAction):
         for book_id, fmts in iteritems(book_id_map):
             if len(fmts) > 1:
                 d = ChooseFormat(fmts, self.gui)
-                if d.exec_() != d.Accepted:
+                if d.exec_() != QDialog.DialogCode.Accepted:
                     return
                 fmts = d.formats
             for fmt in fmts:

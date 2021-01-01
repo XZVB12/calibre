@@ -9,7 +9,7 @@ __docformat__ = 'restructuredtext en'
 import os
 import re
 import traceback
-from contextlib import closing
+from contextlib import closing, suppress
 from PyQt5.Qt import (
     QAbstractListModel, QDir, QIcon, QItemSelection, QItemSelectionModel, Qt,
     QWizard, QWizardPage, pyqtSignal
@@ -448,12 +448,12 @@ class ManufacturerModel(QAbstractListModel):
         return 1
 
     def data(self, index, role):
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             ans = self.manufacturers[index.row()]
             if ans == Device.manufacturer:
                 ans = _('Generic')
             return ans
-        if role == Qt.UserRole:
+        if role == Qt.ItemDataRole.UserRole:
             return self.manufacturers[index.row()]
         return None
 
@@ -476,9 +476,9 @@ class DeviceModel(QAbstractListModel):
         return 1
 
     def data(self, index, role):
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             return (self.devices[index.row()].name)
-        if role == Qt.UserRole:
+        if role == Qt.ItemDataRole.UserRole:
             return self.devices[index.row()]
         return None
 
@@ -616,31 +616,31 @@ class DevicePage(QWizardPage, DeviceUI):
             idx = self.man_model.index_of(Device.manufacturer)
             previous = Device
         self.manufacturer_view.selectionModel().select(idx,
-                QItemSelectionModel.Select)
-        self.dev_model = DeviceModel(self.man_model.data(idx, Qt.UserRole))
+                QItemSelectionModel.SelectionFlag.Select)
+        self.dev_model = DeviceModel(self.man_model.data(idx, Qt.ItemDataRole.UserRole))
         idx = self.dev_model.index_of(previous)
         self.device_view.setModel(self.dev_model)
         self.device_view.selectionModel().select(idx,
-                QItemSelectionModel.Select)
+                QItemSelectionModel.SelectionFlag.Select)
         self.manufacturer_view.selectionModel().selectionChanged[(QItemSelection, QItemSelection)].connect(self.manufacturer_changed)
 
     def manufacturer_changed(self, current, previous):
         new = list(current.indexes())[0]
-        man = self.man_model.data(new, Qt.UserRole)
+        man = self.man_model.data(new, Qt.ItemDataRole.UserRole)
         self.dev_model = DeviceModel(man)
         self.device_view.setModel(self.dev_model)
         self.device_view.selectionModel().select(self.dev_model.index(0),
-                QItemSelectionModel.Select)
+                QItemSelectionModel.SelectionFlag.Select)
 
     def commit(self):
         idx = list(self.device_view.selectionModel().selectedIndexes())[0]
-        dev = self.dev_model.data(idx, Qt.UserRole)
+        dev = self.dev_model.data(idx, Qt.ItemDataRole.UserRole)
         dev.commit()
         dynamic.set('welcome_wizard_device', dev.id)
 
     def nextId(self):
         idx = list(self.device_view.selectionModel().selectedIndexes())[0]
-        dev = self.dev_model.data(idx, Qt.UserRole)
+        dev = self.dev_model.data(idx, Qt.ItemDataRole.UserRole)
         if dev in (Kindle, KindleDX, KindleFire, KindlePW, KindleVoyage):
             return KindlePage.ID
         if dev is iPhone:
@@ -655,6 +655,7 @@ class LibraryPage(QWizardPage, LibraryUI):
 
     def __init__(self):
         QWizardPage.__init__(self)
+        self.made_dirs = []
         self.initial_library_location = None
         self.setupUi(self)
         self.registerField('library_location', self.location)
@@ -663,6 +664,10 @@ class LibraryPage(QWizardPage, LibraryUI):
         self.language.currentIndexChanged[int].connect(self.change_language)
         self.location.textChanged.connect(self.location_text_changed)
         self.set_move_lib_label_text()
+
+    def makedirs(self, x):
+        self.made_dirs.append(x)
+        os.makedirs(x)
 
     def location_text_changed(self, newtext):
         self.completeChanged.emit()
@@ -759,7 +764,7 @@ class LibraryPage(QWizardPage, LibraryUI):
                     show=True)
             if not os.path.exists(x):
                 try:
-                    os.makedirs(x)
+                    self.makedirs(x)
                 except:
                     return error_dialog(self, _('Bad location'),
                             _('Failed to create a folder at %s')%x,
@@ -794,7 +799,7 @@ class LibraryPage(QWizardPage, LibraryUI):
             self.default_library_name = lp
             if not os.path.exists(lp):
                 try:
-                    os.makedirs(lp)
+                    self.makedirs(lp)
                 except:
                     traceback.print_exc()
                     try:
@@ -828,6 +833,10 @@ class LibraryPage(QWizardPage, LibraryUI):
                 os.rmdir(dln)
         except Exception:
             pass
+        # dont leave behind any empty dirs
+        for x in self.made_dirs:
+            with suppress(OSError):
+                os.rmdir(x)
         if not os.path.exists(newloc):
             os.makedirs(newloc)
         prefs['library_path'] = newloc
@@ -875,8 +884,8 @@ class Wizard(QWizard):
     def __init__(self, parent):
         QWizard.__init__(self, parent)
         self.setWindowTitle(__appname__+' '+_('Welcome wizard'))
-        self.setPixmap(self.LogoPixmap, QIcon(I('library.png')).pixmap(48, 48))
-        self.setWizardStyle(self.ModernStyle)
+        self.setPixmap(QWizard.WizardPixmap.LogoPixmap, QIcon(I('library.png')).pixmap(48, 48))
+        self.setWizardStyle(QWizard.WizardStyle.ModernStyle)
         self.device_page = DevicePage()
         self.library_page = LibraryPage()
         self.library_page.retranslate.connect(self.retranslate)
@@ -912,7 +921,7 @@ class Wizard(QWizard):
         QWizard.accept(self)
 
     def set_finish_text(self, *args):
-        bt = unicode_type("<em>" + self.buttonText(self.FinishButton) + "</em>").replace('&', '')
+        bt = unicode_type("<em>" + self.buttonText(QWizard.WizardButton.FinishButton) + "</em>").replace('&', '')
         t = unicode_type(self.finish_page.finish_text.text())
         if '%s' in t:
             self.finish_page.finish_text.setText(t%bt)

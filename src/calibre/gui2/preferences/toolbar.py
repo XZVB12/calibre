@@ -6,7 +6,7 @@ __license__   = 'GPL v3'
 __copyright__ = '2010, Kovid Goyal <kovid@kovidgoyal.net>'
 __docformat__ = 'restructuredtext en'
 
-from PyQt5.Qt import QAbstractListModel, Qt, QIcon
+from PyQt5.Qt import QAbstractListModel, Qt, QIcon, QItemSelectionModel
 
 from calibre import force_unicode
 from calibre.gui2.preferences.toolbar_ui import Ui_Form
@@ -63,13 +63,13 @@ class BaseModel(QAbstractListModel):
     def data(self, index, role):
         row = index.row()
         action = self._data[row].action_spec
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             text = action[0]
             text = text.replace('&', '')
             if text == _('%d books'):
                 text = _('Choose library')
             return (text)
-        if role == Qt.DecorationRole:
+        if role == Qt.ItemDataRole.DecorationRole:
             if hasattr(self._data[row], 'qaction'):
                 icon = self._data[row].qaction.icon()
                 if not icon.isNull():
@@ -78,7 +78,7 @@ class BaseModel(QAbstractListModel):
             if ic is None:
                 ic = 'blank.png'
             return (QIcon(I(ic)))
-        if role == Qt.ToolTipRole and action[2] is not None:
+        if role == Qt.ItemDataRole.ToolTipRole and action[2] is not None:
             return (action[2])
         return None
 
@@ -281,11 +281,11 @@ class ConfigWidget(ConfigWidgetBase, Ui_Form):
         self.current_actions.entered.connect(self.current_entered)
 
     def all_entered(self, index):
-        tt = self.all_actions.model().data(index, Qt.ToolTipRole) or ''
+        tt = self.all_actions.model().data(index, Qt.ItemDataRole.ToolTipRole) or ''
         self.help_text.setText(tt)
 
     def current_entered(self, index):
-        tt = self.current_actions.model().data(index, Qt.ToolTipRole) or ''
+        tt = self.current_actions.model().data(index, Qt.ItemDataRole.ToolTipRole) or ''
         self.help_text.setText(tt)
 
     def what_changed(self, idx):
@@ -343,10 +343,10 @@ class ConfigWidget(ConfigWidgetBase, Ui_Form):
             idx_map = m.move_many(x, delta)
             newci = idx_map.get(i)
             if newci is not None:
-                sm.setCurrentIndex(newci, sm.ClearAndSelect)
+                sm.setCurrentIndex(newci, QItemSelectionModel.SelectionFlag.ClearAndSelect)
             sm.clear()
             for idx in idx_map.values():
-                sm.select(idx, sm.Select)
+                sm.select(idx, QItemSelectionModel.SelectionFlag.Select)
             self.changed_signal.emit()
 
     def commit(self):

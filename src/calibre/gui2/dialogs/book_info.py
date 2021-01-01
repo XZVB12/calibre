@@ -3,12 +3,11 @@
 
 
 import textwrap
-
 from PyQt5.Qt import (
-    QBrush, QCheckBox, QCoreApplication, QDialog, QGridLayout, QHBoxLayout, QIcon,
-    QKeySequence, QLabel, QListView, QModelIndex, QPalette, QPixmap, QPushButton,
-    QShortcut, QSize, QSplitter, Qt, QTimer, QToolButton, QVBoxLayout, QWidget,
-    pyqtSignal, QApplication
+    QAction, QApplication, QBrush, QCheckBox, QCoreApplication, QDialog, QGridLayout,
+    QHBoxLayout, QIcon, QKeySequence, QLabel, QListView, QModelIndex, QPalette,
+    QPixmap, QPushButton, QShortcut, QSize, QSplitter, Qt, QTimer, QToolButton,
+    QVBoxLayout, QWidget, pyqtSignal, QDialogButtonBox
 )
 
 from calibre import fit_image
@@ -51,7 +50,9 @@ class Configure(Dialog):
         Dialog.__init__(self, _('Configure the Book details window'), 'book-details-popup-conf', parent)
 
     def setup_ui(self):
-        from calibre.gui2.preferences.look_feel import DisplayedFields, move_field_up, move_field_down
+        from calibre.gui2.preferences.look_feel import (
+            DisplayedFields, move_field_down, move_field_up
+        )
         self.l = QVBoxLayout(self)
         self.field_display_order = fdo = QListView(self)
         self.model = DisplayedFields(self.db, fdo, pref_name='popup_book_display_fields')
@@ -79,11 +80,11 @@ class Configure(Dialog):
         self.l.addWidget(QLabel('<p>' + _(
             'Note that <b>comments</b> will always be displayed at the end, regardless of the order you assign here')))
 
-        b = self.bb.addButton(_('Restore &defaults'), self.bb.ActionRole)
+        b = self.bb.addButton(_('Restore &defaults'), QDialogButtonBox.ButtonRole.ActionRole)
         b.clicked.connect(self.restore_defaults)
-        b = self.bb.addButton(_('Select &all'), self.bb.ActionRole)
+        b = self.bb.addButton(_('Select &all'), QDialogButtonBox.ButtonRole.ActionRole)
         b.clicked.connect(self.select_all)
-        b = self.bb.addButton(_('Select &none'), self.bb.ActionRole)
+        b = self.bb.addButton(_('Select &none'), QDialogButtonBox.ButtonRole.ActionRole)
         b.clicked.connect(self.select_none)
         self.l.addWidget(self.bb)
         self.setMinimumHeight(500)
@@ -107,13 +108,14 @@ class Details(HTMLDisplay):
     def __init__(self, book_info, parent=None):
         HTMLDisplay.__init__(self, parent)
         self.book_info = book_info
+        self.edit_metadata = getattr(parent, 'edit_metadata', None)
         self.setDefaultStyleSheet(css())
 
     def sizeHint(self):
         return QSize(350, 350)
 
     def contextMenuEvent(self, ev):
-        details_context_menu_event(self, ev, self.book_info)
+        details_context_menu_event(self, ev, self.book_info, edit_metadata=self.edit_metadata)
 
 
 class BookInfo(QDialog):
@@ -123,8 +125,8 @@ class BookInfo(QDialog):
 
     def __init__(self, parent, view, row, link_delegate):
         QDialog.__init__(self, parent)
-        self.normal_brush = QBrush(Qt.white)
-        self.marked_brush = QBrush(Qt.lightGray)
+        self.normal_brush = QBrush(Qt.GlobalColor.white)
+        self.marked_brush = QBrush(Qt.GlobalColor.lightGray)
         self.marked = None
         self.gui = parent
         self.splitter = QSplitter(self)
@@ -144,10 +146,10 @@ class BookInfo(QDialog):
         self.details = Details(parent.book_details.book_info, self)
         self.details.anchor_clicked.connect(self.on_link_clicked)
         self.link_delegate = link_delegate
-        self.details.setAttribute(Qt.WA_OpaquePaintEvent, False)
+        self.details.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
         palette = self.details.palette()
         self.details.setAcceptDrops(False)
-        palette.setBrush(QPalette.Base, Qt.transparent)
+        palette.setBrush(QPalette.ColorRole.Base, Qt.GlobalColor.transparent)
         self.details.setPalette(palette)
 
         self.c = QWidget(self)
@@ -185,9 +187,9 @@ class BookInfo(QDialog):
         self.ps = QShortcut(QKeySequence('Alt+Left'), self)
         self.ps.activated.connect(self.previous)
         self.next_button.setToolTip(_('Next [%s]')%
-                unicode_type(self.ns.key().toString(QKeySequence.NativeText)))
+                unicode_type(self.ns.key().toString(QKeySequence.SequenceFormat.NativeText)))
         self.previous_button.setToolTip(_('Previous [%s]')%
-                unicode_type(self.ps.key().toString(QKeySequence.NativeText)))
+                unicode_type(self.ps.key().toString(QKeySequence.SequenceFormat.NativeText)))
 
         geom = QCoreApplication.instance().desktop().availableGeometry(self)
         screen_height = geom.height() - 100
@@ -200,10 +202,21 @@ class BookInfo(QDialog):
                 self.splitter.restoreState(saved_layout[1])
             except Exception:
                 pass
+        from calibre.gui2.ui import get_gui
+        ema = get_gui().iactions['Edit Metadata'].menuless_qaction
+        a = self.ema = QAction('edit metadata', self)
+        a.setShortcut(ema.shortcut())
+        self.addAction(a)
+        a.triggered.connect(self.edit_metadata)
+
+    def edit_metadata(self):
+        if self.current_row is not None:
+            book_id = self.view.model().id(self.current_row)
+            get_gui().iactions['Edit Metadata'].edit_metadata_for([self.current_row], [book_id], bulk=False)
 
     def configure(self):
         d = Configure(get_gui().current_db, self)
-        if d.exec_() == d.Accepted:
+        if d.exec_() == QDialog.DialogCode.Accepted:
             if self.current_row is not None:
                 mi = self.view.model().get_book_display_info(self.current_row)
                 if mi is not None:
@@ -274,7 +287,7 @@ class BookInfo(QDialog):
                 except AttributeError:
                     dpr = self.devicePixelRatio()
                 pixmap = pixmap.scaled(int(dpr * new_width), int(dpr * new_height),
-                        Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 pixmap.setDevicePixelRatio(dpr)
         self.cover.set_pixmap(pixmap)
         self.update_cover_tooltip()
