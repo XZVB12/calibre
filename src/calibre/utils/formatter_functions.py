@@ -146,7 +146,7 @@ class BuiltinFormatterFunction(FormatterFunction):
     def __init__(self):
         formatter_functions().register_builtin(self)
         eval_func = inspect.getmembers(self.__class__,
-                        lambda x: inspect.ismethod(x) and x.__name__ == 'evaluate')
+                        lambda x: inspect.isfunction(x) and x.__name__ == 'evaluate')
         try:
             lines = [l[4:] for l in inspect.getsourcelines(eval_func[0][1])[0]]
         except:
@@ -241,14 +241,17 @@ class BuiltinStrlen(BuiltinFormatterFunction):
 
 class BuiltinAdd(BuiltinFormatterFunction):
     name = 'add'
-    arg_count = 2
+    arg_count = -1
     category = 'Arithmetic'
-    __doc__ = doc = _('add(x, y) -- returns x + y. Throws an exception if either x or y are not numbers.')
+    __doc__ = doc = _('add(x, y, ...) -- returns the sum of its arguments. '
+                      'Throws an exception if an argument is not a number.')
 
-    def evaluate(self, formatter, kwargs, mi, locals, x, y):
-        x = float(x if x and x != 'None' else 0)
-        y = float(y if y and y != 'None' else 0)
-        return unicode_type(x + y)
+    def evaluate(self, formatter, kwargs, mi, locals, *args):
+        res = 0
+        for v in args:
+            v = float(v if v and v != 'None' else 0)
+            res += v
+        return unicode_type(res)
 
 
 class BuiltinSubtract(BuiltinFormatterFunction):
@@ -265,14 +268,17 @@ class BuiltinSubtract(BuiltinFormatterFunction):
 
 class BuiltinMultiply(BuiltinFormatterFunction):
     name = 'multiply'
-    arg_count = 2
+    arg_count = -1
     category = 'Arithmetic'
-    __doc__ = doc = _('multiply(x, y) -- returns x * y. Throws an exception if either x or y are not numbers.')
+    __doc__ = doc = _('multiply(x, y, ...) -- returns the product of its arguments. '
+                      'Throws an exception if any argument is not a number.')
 
-    def evaluate(self, formatter, kwargs, mi, locals, x, y):
-        x = float(x if x and x != 'None' else 0)
-        y = float(y if y and y != 'None' else 0)
-        return unicode_type(x * y)
+    def evaluate(self, formatter, kwargs, mi, locals, *args):
+        res = 1
+        for v in args:
+            v = float(v if v and v != 'None' else 0)
+            res *= v
+        return unicode_type(res)
 
 
 class BuiltinDivide(BuiltinFormatterFunction):
@@ -402,6 +408,26 @@ class BuiltinAssign(BuiltinFormatterFunction):
     def evaluate(self, formatter, kwargs, mi, locals, target, value):
         locals[target] = value
         return value
+
+
+class BuiltinListSplit(BuiltinFormatterFunction):
+    name = 'list_split'
+    arg_count = 3
+    category = 'List manipulation'
+    __doc__ = doc = _('split(list_val, sep, id_prefix) -- splits the list_val '
+                    "into separate values using 'sep', then assigns the values "
+                    "to variables named 'id_prefix_N' where N is the position "
+                    "of the value in the list. The first item has position 0 (zero). "
+                    "The function returns the last element in the list. "
+                    "Example: split('one, two, foo', ',', 'var') is equivalent "
+                    "to var_0 = 'one'; var_1 = 'two'; var_3 = 'foo'.")
+
+    def evaluate(self, formatter, kwargs, mi, locals, list_val, sep, id_prefix):
+        l = [v.strip() for v in list_val.split(sep)]
+        res = ''
+        for i,v in enumerate(l):
+            res = locals[id_prefix+'_'+unicode_type(i)] = v
+        return res
 
 
 class BuiltinPrint(BuiltinFormatterFunction):
@@ -1869,6 +1895,20 @@ class BuiltinGlobals(BuiltinFormatterFunction):
         raise NotImplementedError()
 
 
+class BuiltinFieldExists(BuiltinFormatterFunction):
+    name = 'field_exists'
+    arg_count = 1
+    category = 'If-then-else'
+    __doc__ = doc = _('field_exists(field_name) -- checks if a field '
+                      '(column) named field_name exists, returning '
+                      "'1' if so and '' if not.")
+
+    def evaluate(self, formatter, kwargs, mi, locals, field_name):
+        if field_name.lower() in mi.all_field_keys():
+            return '1'
+        return ''
+
+
 _formatter_builtins = [
     BuiltinAdd(), BuiltinAnd(), BuiltinApproximateFormats(), BuiltinArguments(),
     BuiltinAssign(),
@@ -1877,7 +1917,8 @@ _formatter_builtins = [
     BuiltinCmp(), BuiltinConnectedDeviceName(), BuiltinConnectedDeviceUUID(), BuiltinContains(),
     BuiltinCount(), BuiltinCurrentLibraryName(), BuiltinCurrentLibraryPath(),
     BuiltinDaysBetween(), BuiltinDivide(), BuiltinEval(), BuiltinFirstNonEmpty(),
-    BuiltinField(), BuiltinFinishFormatting(), BuiltinFirstMatchingCmp(), BuiltinFloor(),
+    BuiltinField(), BuiltinFieldExists(),
+    BuiltinFinishFormatting(), BuiltinFirstMatchingCmp(), BuiltinFloor(),
     BuiltinFormatDate(), BuiltinFormatNumber(), BuiltinFormatsModtimes(),
     BuiltinFormatsPaths(), BuiltinFormatsSizes(), BuiltinFractionalPart(),
     BuiltinGlobals(),
@@ -1885,7 +1926,8 @@ _formatter_builtins = [
     BuiltinIfempty(), BuiltinLanguageCodes(), BuiltinLanguageStrings(),
     BuiltinInList(), BuiltinListDifference(), BuiltinListEquals(),
     BuiltinListIntersection(), BuiltinListitem(), BuiltinListRe(),
-    BuiltinListReGroup(), BuiltinListSort(), BuiltinListUnion(), BuiltinLookup(),
+    BuiltinListReGroup(), BuiltinListSort(), BuiltinListSplit(), BuiltinListUnion(),
+    BuiltinLookup(),
     BuiltinLowercase(), BuiltinMod(), BuiltinMultiply(), BuiltinNot(), BuiltinOndevice(),
     BuiltinOr(), BuiltinPrint(), BuiltinRatingToStars(), BuiltinRawField(), BuiltinRawList(),
     BuiltinRe(), BuiltinReGroup(), BuiltinRound(), BuiltinSelect(), BuiltinSeriesSort(),

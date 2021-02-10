@@ -312,15 +312,15 @@ will show you the location. Click OK once you are happy with the location.
     :alt: The Edit Table of Contents tool, how to change the location an entry points to
     :align: center
 
-Checking the Book
+Checking the book
 ^^^^^^^^^^^^^^^^^^^^^
 
-The :guilabel:`Check Book` tool searches your book for problems that could
+The :guilabel:`Check book` tool searches your book for problems that could
 prevent it working as intended on actual reader devices. Activate it via
-:guilabel:`Tools->Check Book`.
+:guilabel:`Tools->Check book`.
 
 .. image:: images/check-book.png
-    :alt: The Check Book tool
+    :alt: The Check book tool
     :align: center
 
 Any problems found are
@@ -807,7 +807,7 @@ The HTML editor has very sophisticated syntax highlighting. Features include:
     * Invalid HTML is highlighted with a red underline
     * Spelling errors in the text inside HTML tags and attributes such as title
       are highlighted. The spell checking is language aware, based on the value
-      of the lang attribute of the current tag and the overall book language.
+      of the ``lang`` attribute of the current tag and the overall book language.
     * CSS embedded inside ``<style>`` tags is highlighted
     * Special characters that can be hard to distinguish such as non-breaking
       spaces, different types of hyphens, etc. are highlighted.
@@ -821,7 +821,8 @@ Context sensitive help
 You can right click on an HTML tag name or a CSS property name to get help for that tag or property.
 
 You can also hold down the :kbd:`Ctrl` key and click on any filename inside a link tag
-to open that file in the editor automatically.
+to open that file in the editor automatically. Similarly, :kbd:`Ctrl` clicking
+a class name will take you to the first style rule that matches the tag and class.
 
 .. _editor_auto_complete:
 

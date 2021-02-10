@@ -91,9 +91,9 @@ These buttons behave just like those in a web browser.
 Reference mode
 ^^^^^^^^^^^^^^^^^
 
-calibre also has a very handy :guilabel:`Reference mode`.  You can turn it on
+calibre also has a very handy :guilabel:`Reference mode`. You can turn it on
 by clicking the :guilabel:`Reference mode` button in the viewer controls.  Once
-you do this, every mouse over a paragraph, calibre will display a unique number
+you do this, every paragraph will have a unique number displayed at the start,
 made up of the section and paragraph numbers.
 
 You can use this number to unambiguously refer to parts of the books when
@@ -152,6 +152,11 @@ behavior`.
 
 .. note:: On Linux, :guilabel:`Read aloud` requires `Speech Dispatcher
    <https://freebsoft.org/speechd>`_ to be installed and working.
+
+.. note:: On Windows, not all installed voices may be visible to the SAPI
+   sub-system that is used for text-to-speech. There are `instructions to
+   make all voices visible
+   <https://www.mobileread.com/forums/showpost.php?p=4084051&postcount=108>`_.
 
 
 Following links using only the keyboard
@@ -220,7 +225,7 @@ choose :guilabel:`View image`.
 Non re-flowable content
 --------------------------
 
-Some books have very wide content that content be broken up at page boundaries.
+Some books have very wide content that cannot be broken up at page boundaries.
 For example tables or :code:`<pre>` tags. In such cases, you should switch the
 viewer to *flow mode* by pressing :kbd:`Ctrl+m` to read this content.
 Alternately, you can also add the following CSS to the :guilabel:`Styles` section of the

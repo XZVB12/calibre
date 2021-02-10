@@ -653,7 +653,6 @@ class IframeBoss:
     def send_message(self, action, **data):
         self.comm.send_message(action, data)
 
-
     def connect_links(self):
         for a in document.body.querySelectorAll(f'a[{self.link_attr}]'):
             a.addEventListener('click', self.link_activated)
@@ -749,9 +748,6 @@ class IframeBoss:
             self.ensure_selection_visible()
         else:
             self.send_message('search_result_not_found', search_result=data.search_result)
-
-    def reference_item_changed(self, ref_num_or_none):
-        self.send_message('reference_item_changed', refnum=ref_num_or_none, index=current_spine_item().index)
 
     def set_reference_mode(self, data):
         self.reference_mode_enabled = data.enabled
@@ -849,6 +845,14 @@ class IframeBoss:
                 anchor_before=anchor_before
             )
             reset_find_caches()
+        elif dtype is 'cite-current-selection':
+            sel = window.getSelection()
+            if not sel.rangeCount:
+                return
+            bounds = cfi_for_selection()
+            anchor_before = find_anchor_before_range(sel.getRangeAt(0), self.book.manifest.toc_anchor_map, self.anchor_funcs)
+            text = sel.toString()
+            self.send_message('annotations', type='cite-data', bounds=bounds, highlighted_text=text)
         else:
             console.log('Ignoring annotations message to iframe with unknown type: ' + dtype)
 

@@ -607,7 +607,8 @@ class Cache(object):
         if not fmt:
             return {}
         fmt = fmt.upper()
-        if allow_cache:
+        # allow_cache and update_db are mutually exclusive. Give priority to update_db
+        if allow_cache and not update_db:
             x = self.format_metadata_cache[book_id].get(fmt, None)
             if x is not None:
                 return x
@@ -634,6 +635,11 @@ class Cache(object):
         field = self.fields['formats']
         fmts = field.table.book_col_map.get(book_id, ())
         return {fmt:field.format_fname(book_id, fmt) for fmt in fmts}
+
+    @read_api
+    def format_db_size(self, book_id, fmt):
+        field = self.fields['formats']
+        return field.format_size(book_id, fmt)
 
     @read_api
     def pref(self, name, default=None, namespace=None):
@@ -756,6 +762,25 @@ class Cache(object):
 
         return self.backend.copy_cover_to(path, dest, use_hardlink=use_hardlink,
                                           report_file_size=report_file_size)
+
+    @write_api
+    def compress_covers(self, book_ids, jpeg_quality=100, progress_callback=None):
+        '''
+        Compress the cover images for the specified books. A compression quality of 100
+        will perform lossless compression, otherwise lossy compression.
+
+        The progress callback will be called with the book_id and the old and new sizes
+        for each book that has been processed. If an error occurs, the news size will
+        be a string with the error details.
+        '''
+        jpeg_quality = max(10, min(jpeg_quality, 100))
+        path_map = {}
+        for book_id in book_ids:
+            try:
+                path_map[book_id] = self._field_for('path', book_id).replace('/', os.sep)
+            except AttributeError:
+                continue
+        self.backend.compress_covers(path_map, jpeg_quality, progress_callback)
 
     @read_api
     def copy_format_to(self, book_id, fmt, dest, use_hardlink=False, report_file_size=None):

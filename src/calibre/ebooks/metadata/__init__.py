@@ -13,7 +13,7 @@ import os, sys, re
 
 from calibre import relpath, guess_type, prints, force_unicode
 from calibre.utils.config_base import tweaks
-from polyglot.builtins import codepoint_to_chr, unicode_type, range, map, zip, getcwd, iteritems, itervalues, as_unicode
+from polyglot.builtins import codepoint_to_chr, unicode_type, range, map, zip, getcwd, iteritems, as_unicode
 from polyglot.urllib import quote, unquote, urlparse
 
 
@@ -46,69 +46,86 @@ def remove_bracketed_text(src, brackets=None):
         brackets = {'(': ')', '[': ']', '{': '}'}
     from collections import Counter
     counts = Counter()
+    total = 0
     buf = []
     src = force_unicode(src)
     rmap = {v: k for k, v in iteritems(brackets)}
     for char in src:
         if char in brackets:
             counts[char] += 1
+            total += 1
         elif char in rmap:
             idx = rmap[char]
             if counts[idx] > 0:
                 counts[idx] -= 1
-        elif sum(itervalues(counts)) < 1:
+                total -= 1
+        elif total < 1:
             buf.append(char)
     return ''.join(buf)
 
 
-def author_to_author_sort(author, method=None):
+def author_to_author_sort(
+        author,
+        method=None,
+        copywords=None,
+        use_surname_prefixes=None,
+        surname_prefixes=None,
+        name_prefixes=None,
+        name_suffixes=None
+):
     if not author:
         return ''
-    sauthor = remove_bracketed_text(author).strip()
-    tokens = sauthor.split()
-    if len(tokens) < 2:
-        return author
+
     if method is None:
         method = tweaks['author_sort_copy_method']
-
-    ltoks = frozenset(x.lower() for x in tokens)
-    copy_words = frozenset(x.lower() for x in tweaks['author_name_copywords'])
-    if ltoks.intersection(copy_words):
-        method = 'copy'
-
     if method == 'copy':
         return author
 
-    prefixes = {force_unicode(y).lower() for y in tweaks['author_name_prefixes']}
-    prefixes |= {y+'.' for y in prefixes}
-    while True:
-        if not tokens:
-            return author
-        tok = tokens[0].lower()
-        if tok in prefixes:
-            tokens = tokens[1:]
-        else:
-            break
-
-    suffixes = {force_unicode(y).lower() for y in tweaks['author_name_suffixes']}
-    suffixes |= {y+'.' for y in suffixes}
-
-    suffix = ''
-    while True:
-        if not tokens:
-            return author
-        last = tokens[-1].lower()
-        if last in suffixes:
-            suffix = tokens[-1] + ' ' + suffix
-            tokens = tokens[:-1]
-        else:
-            break
-    suffix = suffix.strip()
-
-    if method == 'comma' and ',' in ''.join(tokens):
+    sauthor = remove_bracketed_text(author).strip()
+    if method == 'comma' and ',' in sauthor:
         return author
 
-    atokens = tokens[-1:] + tokens[:-1]
+    tokens = sauthor.split()
+    if len(tokens) < 2:
+        return author
+
+    ltoks = frozenset(x.lower() for x in tokens)
+    copy_words = frozenset(x.lower() for x in (tweaks['author_name_copywords'] if copywords is None else copywords))
+    if ltoks.intersection(copy_words):
+        return author
+
+    author_use_surname_prefixes = tweaks['author_use_surname_prefixes'] if use_surname_prefixes is None else use_surname_prefixes
+    if author_use_surname_prefixes:
+        author_surname_prefixes = frozenset(x.lower() for x in (tweaks['author_surname_prefixes'] if surname_prefixes is None else surname_prefixes))
+        if len(tokens) == 2 and tokens[0].lower() in author_surname_prefixes:
+            return author
+
+    prefixes = {force_unicode(y).lower() for y in (tweaks['author_name_prefixes'] if name_prefixes is None else name_prefixes)}
+    prefixes |= {y+'.' for y in prefixes}
+
+    for first in range(len(tokens)):
+        if tokens[first].lower() not in prefixes:
+            break
+    else:
+        return author
+
+    suffixes = {force_unicode(y).lower() for y in (tweaks['author_name_suffixes'] if name_suffixes is None else name_suffixes)}
+    suffixes |= {y+'.' for y in suffixes}
+
+    for last in range(len(tokens) - 1, first - 1, -1):
+        if tokens[last].lower() not in suffixes:
+            break
+    else:
+        return author
+
+    suffix = ' '.join(tokens[last + 1:])
+
+    if author_use_surname_prefixes:
+        if last > first and tokens[last - 1].lower() in author_surname_prefixes:
+            tokens[last - 1] += ' ' + tokens[last]
+            last -= 1
+
+    atokens = tokens[last:last + 1] + tokens[first:last]
     num_toks = len(atokens)
     if suffix:
         atokens.append(suffix)
@@ -203,7 +220,7 @@ def fmt_sidx(i, fmt='%.2f', use_roman=False):
         i = 1
     try:
         i = float(i)
-    except TypeError:
+    except Exception:
         return unicode_type(i)
     if int(i) == float(i):
         return roman(int(i)) if use_roman else '%d'%int(i)

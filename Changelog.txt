@@ -6,7 +6,7 @@
 # to the ticket list.
 # Also, each release can have new and improved recipes.
 
-# {{{ 5.x.0 2020-xx-xx
+# {{{ 5.x.0 2021-xx-xx
 #
 # :: new features
 #
@@ -22,6 +22,102 @@
 # :: new recipes
 # - title by author
 # }}}
+
+{{{ 5.10.1 2021-01-22
+
+:: new features
+
+- [1911888] Bulk metadata edit: Add a new control to compress the cover image files for all selected books
+
+- [1912212] Add support for the CB7 comic file file format
+
+- [1912070] E-book viewer: Allow adding a button to the selection bar that copies the
+  currently selected text along with a calibre:// URL to show the text in the book
+
+- Conversion: Insert metadata: Allow showing identifiers such as ISBN in the jacket page template
+
+- Conversion: Insert metadata: Allow hiding entries in the jacket template when they are not present in the metadata
+
+- [1912337] calibre-server --manage-users: Add a scriptable interface: calibre-server --manage-users -- help
+
+- [1912070] E-book viewer: Add keyboard shortcuts to copy the current location to the clipboard
+
+- [1912003] E-book viewer: Highlight all currently visible Table of Contents entries, not just the first
+
+- Add a new tweak under Preferences->Tweaks->Author sort name algorithm to optionally recognize
+  common surname prefixes such as von, van, de, etc. when generating sort names.
+
+:: bug fixes
+
+- [1911470] E-book viewer: Move read aloud pop-up bar to the bottom of the screen in flow mode
+
+- [1911218] E-book viewer: Fix scrolling with two fingers on touch pad on macOS not smooth
+
+- [1911466] PDF Output: When converting fixed layout input documents fix anchors inserted for navigation sometimes being rendered as blue boxes
+
+- [1904350] Edit book: Remove unused CSS: Fix selectors that don't match from CSS rules containing multiple selectors not being removed
+
+- Bulk metadata download: Fix series number not being changes if the series is the same as the existing series
+
+- E-book viewer: Fix a regression that caused non-HTML descriptions to not be displayed in the metadata page
+
+- E-book viewer: Fix clock being displayed in 24 hr format on some systems even though system locale is set to use 12 hr format.
+
+- Bulk metadata edit: Fix regression that inverted the meaning of the case sensitivity setting in the Search & replace tab
+
+- calibredb list: Fix incorrect output when redirecting to file
+
+- 5.10.1 fixes a regression in 5.10.0 that broke conversion when including metadata as a jacket page and using long text custom columns
+
+:: improved recipes
+- Jacobin
+- Japan Times
+- The Wall Street Journal
+- Mediapart
+
+}}}
+
+{{{ 5.9.0 2021-01-08
+
+:: new features
+
+- Annotations: Allow exporting highlights and bookmarks in Markdown format, with a link to open the book at the highlight location
+
+- [1909529] Content server viewer: Allow exporting all highlights
+
+- [1909339] Icon rules editor: Add a button to open the icons folder
+
+- [1909258] Quickview: Dropdown menu for all selectable columns
+
+:: bug fixes
+
+- [1909880 1906152] Fix a regression that caused the Content server to crash if a client closed a connection during a file transfer on macOS and Linux.
+
+- [1909224] LRF Output: Fix conversion broken in calibre 5 when font size rescaling is active
+
+- E-book viewer: Cancel any speech in progress when hiding the selection popup bar after triggering the speak aloud action on it
+
+- [1909332] Color/icon rules editor: Fix duplicate rule button not working correctly
+
+- [1909291] Fix dropping files onto Book details causing an error if the confirmation dialog is disabled
+
+:: improved recipes
+- General Knowledge Today
+- El Pais
+- USA Today
+- WirtchaftsWoche Online
+- The Guardian
+- Arcamax
+- Miami Herald
+- The Seattle Times
+
+:: new recipes
+
+- Mallorca Zeitung by VoHegg
+- T-Online by VoHegg
+- El Diario by Dirk Gómez
+
+}}}
 
 {{{ 5.8.1 2020-12-24
 
@@ -96,7 +192,7 @@
 
 - [1906459] AZW3 Input: Fix a regression in calibre 5 that broke processing of files with inline flow replacements.
 
-- [1906149] Fix hiding and showing book details panel changes its size by a pixel or two.
+- [1906149] Fix hiding and showing Book details panel changes its size by a pixel or two.
 
 - [1907067] Get books: Fix amazon.fr not working because of website changes.
 
