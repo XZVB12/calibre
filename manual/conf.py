@@ -93,7 +93,8 @@ unused_docs = ['global', 'cli/global']
 
 locale_dirs = ['locale/']
 title = '%s User Manual' % __appname__
-if language not in {'en', 'eng'}:
+needs_localization = language not in {'en', 'eng'}
+if needs_localization:
     import gettext
     try:
         t = gettext.translation('simple_index', locale_dirs[0], [language])
@@ -148,7 +149,6 @@ html_favicon = '../icons/favicon.ico'
 # relative to this directory. They are copied after the built-in static files,
 # so a file named "default.css" will overwrite the built-in "default.css".
 html_static_path = ['resources', '../icons/favicon.ico']
-html_css_files = ['custom.css']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -175,6 +175,7 @@ def sort_languages(x):
 html_context['other_languages'].sort(key=sort_languages)
 html_context['support_text'] = _('Support calibre')
 html_context['support_tooltip'] = _('Contribute to support calibre development')
+html_context['homepage_url'] = 'http://calibre-ebook.com' + (f'/{language}' if needs_localization else '')
 del sort_languages, get_language
 
 epub_author      = u'Kovid Goyal'

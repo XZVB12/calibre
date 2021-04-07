@@ -971,6 +971,7 @@ class OPF(object):  # {{{
 
     def get_identifiers(self):
         identifiers = {}
+        schemeless = []
         for x in self.XPath(
             'descendant::*[local-name() = "identifier" and text()]')(
                     self.metadata):
@@ -993,6 +994,15 @@ class OPF(object):  # {{{
                     val = check_isbn(val.split(':')[-1])
                     if val is not None:
                         identifiers['isbn'] = val
+                else:
+                    schemeless.append(val)
+
+        if schemeless and 'isbn' not in identifiers:
+            for val in schemeless:
+                if check_isbn(val, simple_sanitize=True) is not None:
+                    identifiers['isbn'] = check_isbn(val)
+                    break
+
         return identifiers
 
     def set_identifiers(self, identifiers):
@@ -1362,7 +1372,7 @@ class OPFCreator(Metadata):
     def __init__(self, base_path, other):
         '''
         Initialize.
-        @param base_path: An absolute path to the directory in which this OPF file
+        @param base_path: An absolute path to the folder in which this OPF file
         will eventually be. This is used by the L{create_manifest} method
         to convert paths to files into relative paths.
         '''

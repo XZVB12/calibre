@@ -3,7 +3,7 @@
 __license__   = 'GPL v3'
 __copyright__ = '2008, Kovid Goyal <kovid at kovidgoyal.net>'
 
-from PyQt5.Qt import Qt, QDialog, QListWidgetItem
+from qt.core import Qt, QDialog, QListWidgetItem
 
 from calibre.gui2.dialogs.device_category_editor_ui import Ui_DeviceCategoryEditor
 from calibre.gui2 import question_dialog, error_dialog
@@ -102,7 +102,7 @@ class DeviceCategoryEditor(QDialog, Ui_DeviceCategoryEditor):
     def _rename_tag(self, item):
         if item is None:
             error_dialog(self, _('No item selected'),
-                         _('You must select one item from the list of Available items.')).exec_()
+                         _('You must select one item from the list of available items.')).exec_()
             return
         self.available_tags.editItem(item)
 

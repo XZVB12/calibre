@@ -21,7 +21,7 @@ class PML2PMLZ(FileTypePlugin):
     name = 'PML to PMLZ'
     author = 'John Schember'
     description = _('Create a PMLZ archive containing the PML file '
-        'and all images in the directory pmlname_img or images. '
+        'and all images in the folder pmlname_img or images. '
         'This plugin is run every time you add '
         'a PML file to the library.')
     version = numeric_version
@@ -1622,17 +1622,6 @@ class StoreEbooksGratuitsStore(StoreBase):
 #     affiliate = True
 
 
-class StoreEKnigiStore(StoreBase):
-    name = 'еКниги'
-    author = 'Alex Stanev'
-    description = 'Онлайн книжарница за електронни книги и аудио риалити романи'
-    actual_plugin = 'calibre.gui2.store.stores.eknigi_plugin:eKnigiStore'
-
-    headquarters = 'BG'
-    formats = ['EPUB', 'PDF', 'HTML']
-    affiliate = True
-
-
 class StoreEmpikStore(StoreBase):
     name = 'Empik'
     author = 'Tomasz Długosz'
@@ -1908,7 +1897,6 @@ plugins += [
     StoreEbookpointStore,
     StoreEbookscomStore,
     StoreEbooksGratuitsStore,
-    StoreEKnigiStore,
     StoreEmpikStore,
     StoreFeedbooksStore,
     StoreGoogleBooksStore,

@@ -10,7 +10,6 @@ TAP_THRESHOLD = 8  # pixels
 SWIPE_THRESHOLD = 64  # pixels
 TAP_LINK_THRESHOLD = 5  # pixels
 PINCH_THRESHOLD = 20  # pixels
-LONG_TAP_THRESHOLD = 500  # milliseconds
 
 gesture_id = 0
 
@@ -25,6 +24,14 @@ def copy_touch(t):
         'page_x':v'[t.pageX]', 'page_y':v'[t.pageY]', 'viewport_x':v'[t.clientX]', 'viewport_y':v'[t.clientY]',
         'active':True, 'mtimes':v'[now]', 'ctime':now, 'is_held':False, 'x_velocity': 0, 'y_velocity': 0
     }
+
+
+def update_touch(t, touch):
+    now = window.performance.now()
+    t.mtimes.push(now)
+    t.page_x.push(touch.pageX), t.page_y.push(touch.pageY)
+    t.viewport_x.push(touch.clientX), t.viewport_y.push(touch.clientY)
+
 
 def max_displacement(points):
     ans = 0
@@ -151,7 +158,7 @@ class TouchHandler:
 
     def start_hold_timer(self):
         self.stop_hold_timer()
-        self.hold_timer = window.setTimeout(self.check_for_hold, 100)
+        self.hold_timer = window.setTimeout(self.check_for_hold, 50)
 
     def stop_hold_timer(self):
         if self.hold_timer is not None:
@@ -184,18 +191,12 @@ class TouchHandler:
         if len(self.ongoing_touches) > 0:
             self.start_hold_timer()
 
-    def update_touch(self, t, touch):
-        now = window.performance.now()
-        t.mtimes.push(now)
-        t.page_x.push(touch.pageX), t.page_y.push(touch.pageY)
-        t.viewport_x.push(touch.clientX), t.viewport_y.push(touch.clientY)
-
     def handle_touchmove(self, ev):
         ev.preventDefault(), ev.stopPropagation()
         for touch in ev.changedTouches:
             t = self.ongoing_touches[touch_id(touch)]
             if t:
-                self.update_touch(t, touch)
+                update_touch(t, touch)
                 self.dispatch_gesture()
 
     def handle_touchend(self, ev):
@@ -204,7 +205,7 @@ class TouchHandler:
             t = self.ongoing_touches[touch_id(touch)]
             if t:
                 t.active = False
-                self.update_touch(t, touch)
+                update_touch(t, touch)
         self.prune_expired_touches()
         if not self.has_active_touches:
             self.dispatch_gesture()
@@ -241,7 +242,7 @@ class BookTouchHandler(TouchHandler):
         gesture.from_side_margin = self.for_side_margin
         if gesture.type is 'tap':
             if gesture.is_held:
-                if not self.for_side_margin and not self.handled_tap_hold and window.performance.now() - gesture.start_time >= LONG_TAP_THRESHOLD:
+                if not self.for_side_margin and not self.handled_tap_hold and window.performance.now() - gesture.start_time >= HOLD_THRESHOLD:
                     self.handled_tap_hold = True
                     gesture.type = 'long-tap'
                     get_boss().handle_gesture(gesture)
@@ -285,8 +286,8 @@ main_touch_handler = BookTouchHandler()
 left_margin_handler = BookTouchHandler('left')
 right_margin_handler = BookTouchHandler('right')
 
-def install_handlers(elem, handler):
-    options = {'capture': True, 'passive': False}
+def install_handlers(elem, handler, passive):
+    options = {'capture': True, 'passive': v'!!passive'}
     elem.addEventListener('touchstart', handler.handle_touchstart, options)
     elem.addEventListener('touchmove', handler.handle_touchmove, options)
     elem.addEventListener('touchend', handler.handle_touchend, options)

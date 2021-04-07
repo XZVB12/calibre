@@ -7,7 +7,7 @@ __copyright__ = '2013, Kovid Goyal <kovid at kovidgoyal.net>'
 
 from functools import partial
 
-from PyQt5.Qt import (
+from qt.core import (
     Qt, QMenu, QIcon, QDialog, QGridLayout, QLabel, QLineEdit, QComboBox, QFrame,
     QDialogButtonBox, QSize, QVBoxLayout, QListWidget, QRadioButton, QAction, QTextBrowser, QAbstractItemView)
 
@@ -152,8 +152,8 @@ class CreateVirtualLibrary(QDialog):  # {{{
             you do will only search within the books in the Virtual library. This
             is a good way to partition your large library into smaller and easier to work with subsets.</p>
 
-            <p>For example you can use a Virtual library to only show you books with the tag <i>"Unread"</i>
-            or only books by <i>"My favorite author"</i> or only books in a particular series.</p>
+            <p>For example you can use a Virtual library to only show you books with the tag <i>Unread</i>
+            or only books by <i>My favorite author</i> or only books in a particular series.</p>
 
             <p>More information and examples are available in the
             <a href="%s">User Manual</a>.</p>
@@ -352,6 +352,7 @@ class SearchRestrictionMixin(object):
         virt_libs[name] = search
         db.new_api.set_pref('virtual_libraries', virt_libs)
         db.new_api.clear_search_caches()
+        self.library_view.model().db.refresh()
 
     def do_create_edit(self, name=None):
         db = self.library_view.model().db
@@ -498,6 +499,7 @@ class SearchRestrictionMixin(object):
             'confirm_vl_removal', parent=self):
             return
         self._remove_vl(name, reapply=True)
+        self.library_view.model().db.refresh()
 
     def choose_vl_triggerred(self):
         from calibre.gui2.tweak_book.widgets import QuickOpen, emphasis_style

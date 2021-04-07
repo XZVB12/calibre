@@ -9,7 +9,7 @@ __docformat__ = 'restructuredtext en'
 import os, errno
 from threading import Thread, Event
 
-from PyQt5.Qt import QDialog, QTimer, Qt, pyqtSignal
+from qt.core import QDialog, QTimer, Qt, pyqtSignal
 
 from calibre.gui2.dialogs.choose_library_ui import Ui_Dialog
 from calibre.gui2.dialogs.progress import ProgressDialog as PD
@@ -121,7 +121,7 @@ class ChooseLibrary(QDialog, Ui_Dialog):
             if (iswindows and len(loc) >
                     LibraryDatabase.WINDOWS_LIBRARY_PATH_LIMIT):
                 error_dialog(self, _('Too long'),
-                    _('Path to library too long. Must be less than'
+                    _('Path to library too long. It must be less than'
                     ' %d characters.')%LibraryDatabase.WINDOWS_LIBRARY_PATH_LIMIT,
                     show=True)
                 return False

@@ -43,7 +43,7 @@ class Link(object):
     def __init__(self, url, base):
         '''
         :param url:  The url this link points to. Must be an unquoted unicode string.
-        :param base: The base directory that relative URLs are with respect to.
+        :param base: The base folder that relative URLs are with respect to.
                      Must be a unicode string.
         '''
         assert isinstance(url, unicode_type) and isinstance(base, unicode_type)
@@ -152,7 +152,7 @@ class HTMLFile(object):
         return hash(self.path)
 
     def __str__(self):
-        return 'HTMLFile:%d:%s:%s'%(self.level, 'b' if self.is_binary else 'a', self.path)
+        return 'HTMLFile:%d:%s:%r'%(self.level, 'b' if self.is_binary else 'a', self.path)
 
     def __repr__(self):
         return unicode_type(self)

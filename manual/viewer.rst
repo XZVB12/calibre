@@ -109,9 +109,10 @@ When you select text in the viewer, a little popup bar appears next to the
 selection. You can click the highlight button in that bar to create a
 highlight. You can add notes and change the color of the highlight. On a touch
 screen, long tap a word to select it and show the popup bar. Once in highlight
-mode you can tap the :guilabel:`Adjust selection` button to change what text is
-selected, using touch screen friendly selection handles.  Drag
-the handles to the top or bottom margins to scroll while selecting.
+mode you can change what text is selected, using touch screen friendly selection
+handles. Drag the handles to the top or bottom margins to scroll while selecting.
+You can also hold the :kbd:`Shift` key and click to extend the selection,
+particularly useful for multi-page selections.
 
 You can use the :guilabel:`Highlights` button in the viewer
 controls to show a separate panel with a list of all highlights in the book,
@@ -227,7 +228,7 @@ Non re-flowable content
 
 Some books have very wide content that cannot be broken up at page boundaries.
 For example tables or :code:`<pre>` tags. In such cases, you should switch the
-viewer to *flow mode* by pressing :kbd:`Ctrl+m` to read this content.
+viewer to *flow mode* by pressing :kbd:`Ctrl+M` to read this content.
 Alternately, you can also add the following CSS to the :guilabel:`Styles` section of the
 viewer preferences to force the viewer to break up lines of text in
 :code:`<pre>` tags::

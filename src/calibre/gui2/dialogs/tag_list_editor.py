@@ -5,7 +5,7 @@
 
 from functools import partial
 
-from PyQt5.Qt import (Qt, QDialog, QTableWidgetItem, QIcon, QByteArray, QSize, QAbstractItemView,
+from qt.core import (Qt, QDialog, QTableWidgetItem, QIcon, QByteArray, QSize, QAbstractItemView,
                       QDialogButtonBox, QItemDelegate, QApplication,
                       pyqtSignal, QAction, QFrame, QLabel, QTimer, QMenu, QColor)
 
@@ -319,7 +319,7 @@ class TagListEditor(QDialog, Ui_TagListEditor):
 
     def search_for_books(self, item):
         from calibre.gui2.ui import get_gui
-        get_gui().search.set_search_string('{0}:"{1}"'.format(self.category,
+        get_gui().search.set_search_string('{0}:"={1}"'.format(self.category,
                                    unicode_type(item.text()).replace(r'"', r'\"')))
 
         qv = get_quickview_action_plugin()
@@ -330,7 +330,7 @@ class TagListEditor(QDialog, Ui_TagListEditor):
                 current_row = rows[0].row()
                 current_col = view.column_map.index(self.category)
                 index = view.model().index(current_row, current_col)
-                qv.change_quickview_column(index)
+                qv.change_quickview_column(index, show=False)
 
     def copy_to_clipboard(self, item):
         cb = QApplication.clipboard()
@@ -556,7 +556,7 @@ class TagListEditor(QDialog, Ui_TagListEditor):
         indexes = self.table.selectionModel().selectedRows()
         if not indexes:
             error_dialog(self, _('No item selected'),
-                         _('You must select one item from the list of Available items.')).exec_()
+                         _('You must select one item from the list of available items.')).exec_()
             return
 
         if not confirm(
@@ -581,7 +581,7 @@ class TagListEditor(QDialog, Ui_TagListEditor):
     def _rename_tag(self, item):
         if item is None:
             error_dialog(self, _('No item selected'),
-                         _('You must select one item from the list of Available items.')).exec_()
+                         _('You must select one item from the list of available items.')).exec_()
             return
         for col_zero_item in self.table.selectedItems():
             if col_zero_item.is_deleted:

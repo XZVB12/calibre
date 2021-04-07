@@ -7,7 +7,7 @@ import math
 from collections import defaultdict
 from functools import lru_cache
 from itertools import chain
-from PyQt5.Qt import (
+from qt.core import (
     QColor, QFont, QHBoxLayout, QIcon, QImage, QItemSelectionModel, QKeySequence,
     QLabel, QMenu, QPainter, QPainterPath, QPixmap, QPushButton, QRect, QSizePolicy,
     Qt, QTextEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, pyqtSignal,
@@ -141,8 +141,17 @@ class Export(ExportBase):
         lines = []
         as_markdown = fmt == 'md'
         link_prefix = link_prefix_for_location_links()
-        for hl in self.annotations:
-            render_highlight_as_text(hl, lines, as_markdown=as_markdown, link_prefix=link_prefix)
+        chapter_groups = {}
+        def_chap = (_('Unknown chapter'),)
+        for a in self.annotations:
+            toc_titles = a.get('toc_family_titles', def_chap)
+            chapter_groups.setdefault(toc_titles[0], []).append(a)
+        for chapter, group in chapter_groups.items():
+            if len(chapter_groups) > 1:
+                lines.append('### ' + chapter)
+                lines.append('')
+            for hl in group:
+                render_highlight_as_text(hl, lines, as_markdown=as_markdown, link_prefix=link_prefix)
         return '\n'.join(lines).strip()
 
 

@@ -8,7 +8,7 @@ __copyright__ = '2014, Kovid Goyal <kovid at kovidgoyal.net>'
 import sys, os, re
 from functools import partial
 
-from PyQt5.Qt import (
+from qt.core import (
     QGridLayout, QToolButton, QIcon, QRadioButton, QMenu, QApplication, Qt,
     QSize, QWidget, QLabel, QStackedLayout, QPainter, QRect, QVBoxLayout,
     QCursor, QEventLoop, QKeySequence, pyqtSignal, QTimer, QHBoxLayout, QDialogButtonBox)
@@ -400,7 +400,7 @@ class Diff(Dialog):
 
     def dir_diff(self, left, right, identical_msg=None):
         with self:
-            identical = self.apply_diff(identical_msg or _('The directories are identical'), *dir_diff(left, right))
+            identical = self.apply_diff(identical_msg or _('The folders are identical'), *dir_diff(left, right))
             self.view.finalize()
         if identical:
             self.reject()

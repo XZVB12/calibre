@@ -7,7 +7,7 @@ __docformat__ = 'restructuredtext en'
 
 import weakref, textwrap
 
-from PyQt5.Qt import (
+from qt.core import (
     QWidget, QLabel, QTabWidget, QGridLayout, QLineEdit, QVBoxLayout,
     QGroupBox, QComboBox, QSizePolicy, QDialog, QDialogButtonBox, QCheckBox,
     QSpacerItem)
@@ -89,8 +89,8 @@ class TabbedDeviceConfig(QTabWidget):
             self.formats.hide()
 
         self.opt_use_subdirs = create_checkbox(
-                                           _("Use sub-directories"),
-                                           _('Place files in sub-directories if the device supports them'),
+                                           _("Use sub-folders"),
+                                           _('Place files in sub-folders if the device supports them'),
                                            device_settings.use_subdirs
                                            )
         self.opt_read_metadata = create_checkbox(

@@ -13,14 +13,13 @@ import threading
 from contextlib import contextmanager
 from threading import Lock, RLock
 
-from PyQt5.Qt import (
+from qt.core import (
     QT_VERSION, QApplication, QBuffer, QByteArray, QCoreApplication, QDateTime,
     QDesktopServices, QDialog, QEvent, QFileDialog, QFileIconProvider, QFileInfo, QPalette,
     QFont, QFontDatabase, QFontInfo, QFontMetrics, QIcon, QLocale, QColor,
     QNetworkProxyFactory, QObject, QSettings, QSocketNotifier, QStringListModel, Qt,
-    QThread, QTimer, QTranslator, QUrl, pyqtSignal, QIODevice, QDialogButtonBox
+    QThread, QTimer, QTranslator, QUrl, pyqtSignal, QIODevice, QDialogButtonBox, QStyle
 )
-from PyQt5.QtWidgets import QStyle  # Gives a nicer error message than import from Qt
 
 from calibre import as_unicode, prints
 from calibre.constants import (
@@ -234,7 +233,7 @@ def _config():  # {{{
     c.add_opt('LRF_ebook_viewer_options', default=None,
               help=_('Options for the LRF e-book viewer'))
     c.add_opt('internally_viewed_formats', default=['LRF', 'EPUB', 'LIT',
-        'MOBI', 'PRC', 'POBI', 'AZW', 'AZW3', 'HTML', 'FB2', 'PDB', 'RB',
+        'MOBI', 'PRC', 'POBI', 'AZW', 'AZW3', 'HTML', 'FB2', 'FBZ', 'PDB', 'RB',
         'SNB', 'HTMLZ', 'KEPUB'], help=_(
             'Formats that are viewed using the internal viewer'))
     c.add_opt('column_map', default=ALL_COLUMNS,
@@ -308,7 +307,7 @@ def _config():  # {{{
     # This option is no longer used. It remains for compatibility with upgrades
     # so the value can be migrated
     c.add_opt('tag_browser_hidden_categories', default=set(),
-            help=_('tag browser categories not to display'))
+            help=_('Tag browser categories not to display'))
 
     c.add_opt
     return ConfigProxy(c)
@@ -805,8 +804,8 @@ def show_temp_dir_error(err):
     extra = _('Click "Show details" for more information.')
     if 'CALIBRE_TEMP_DIR' in os.environ:
         extra = _('The %s environment variable is set. Try unsetting it.') % 'CALIBRE_TEMP_DIR'
-    error_dialog(None, _('Could not create temporary directory'), _(
-        'Could not create temporary directory, calibre cannot start.') + ' ' + extra, det_msg=traceback.format_exc(), show=True)
+    error_dialog(None, _('Could not create temporary folder'), _(
+        'Could not create temporary folder, calibre cannot start.') + ' ' + extra, det_msg=traceback.format_exc(), show=True)
 
 
 def setup_hidpi():
@@ -909,7 +908,7 @@ class Application(QApplication):
         except EnvironmentError as err:
             if not headless:
                 show_temp_dir_error(err)
-            raise SystemExit('Failed to create temporary directory')
+            raise SystemExit('Failed to create temporary folder')
         if DEBUG and not headless:
             prints('devicePixelRatio:', self.devicePixelRatio())
             s = self.primaryScreen()
@@ -1171,14 +1170,14 @@ class Application(QApplication):
 
     @property
     def current_custom_colors(self):
-        from PyQt5.Qt import QColorDialog
+        from qt.core import QColorDialog
 
         return [col.getRgb() for col in
                     (QColorDialog.customColor(i) for i in range(QColorDialog.customCount()))]
 
     @current_custom_colors.setter
     def current_custom_colors(self, colors):
-        from PyQt5.Qt import QColorDialog
+        from qt.core import QColorDialog
         num = min(len(colors), QColorDialog.customCount())
         for i in range(num):
             QColorDialog.setCustomColor(i, QColor(*colors[i]))
@@ -1386,7 +1385,7 @@ def elided_text(text, font=None, width=300, pos='middle'):
     rendered, replacing characters from the left, middle or right (as per pos)
     of the string with an ellipsis. Results in a string much closer to the
     limit than Qt's elidedText().'''
-    from PyQt5.Qt import QFontMetrics, QApplication
+    from qt.core import QFontMetrics, QApplication
     if font is None:
         font = QApplication.instance().font()
     fm = (font if isinstance(font, QFontMetrics) else QFontMetrics(font))
@@ -1469,7 +1468,6 @@ if is_running_from_develop:
 
 
 def event_type_name(ev_or_etype):
-    from PyQt5.QtCore import QEvent
     etype = ev_or_etype.type() if isinstance(ev_or_etype, QEvent) else ev_or_etype
     for name, num in iteritems(vars(QEvent)):
         if num == etype:

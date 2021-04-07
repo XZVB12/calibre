@@ -49,12 +49,12 @@ def main(opts, args, dbctx):
     if not empty:
         raise SystemExit(
             _(
-                '%s is not empty. You must choose an empty directory for the new library.'
+                '%s is not empty. You must choose an empty folder for the new library.'
             ) % loc
         )
     if iswindows and len(loc) > LibraryDatabase.WINDOWS_LIBRARY_PATH_LIMIT:
         raise SystemExit(
-            _('Path to library too long. Must be less than'
+            _('Path to library too long. It must be less than'
               ' %d characters.') % LibraryDatabase.WINDOWS_LIBRARY_PATH_LIMIT
         )
     LibraryDatabase(loc, default_prefs=prefs)

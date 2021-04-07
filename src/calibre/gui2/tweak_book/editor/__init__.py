@@ -5,7 +5,7 @@
 __license__ = 'GPL v3'
 __copyright__ = '2013, Kovid Goyal <kovid at kovidgoyal.net>'
 
-from PyQt5.Qt import QTextCharFormat, QTextFormat
+from qt.core import QTextCharFormat, QTextFormat
 
 from calibre.ebooks.oeb.base import OEB_DOCS, OEB_STYLES
 from calibre.ebooks.oeb.polish.container import guess_type
@@ -24,7 +24,7 @@ def syntax_from_mime(name, mime):
     if mime.startswith('text/'):
         return 'text'
     if mime.startswith('image/') and mime.partition('/')[-1].lower() in {
-        'jpeg', 'jpg', 'gif', 'png'}:
+        'jpeg', 'jpg', 'gif', 'png', 'webp'}:
         return 'raster_image'
     if mime.endswith('+xml'):
         return 'xml'

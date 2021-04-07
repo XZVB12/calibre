@@ -10,7 +10,7 @@ import os, errno
 from datetime import datetime
 from functools import partial
 
-from PyQt5.Qt import (Qt, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QApplication,
+from qt.core import (Qt, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QApplication,
         QGridLayout, pyqtSignal, QDialogButtonBox, QScrollArea, QFont, QCoreApplication,
         QTabWidget, QIcon, QToolButton, QSplitter, QGroupBox, QSpacerItem, QInputDialog,
         QSizePolicy, QFrame, QSize, QKeySequence, QMenu, QShortcut, QDialog)
@@ -658,7 +658,7 @@ class MetadataSingleDialogBase(QDialog):
         self.save_state()
         if self.was_data_edited and not confirm(
                 title=_('Are you sure?'), name='confirm-cancel-edit-single-metadata', msg=_(
-                    'You will lose all unsaved changes, are you sure?'), parent=self):
+                    'You will lose all unsaved changes. Are you sure?'), parent=self):
             return
         QDialog.reject(self)
 

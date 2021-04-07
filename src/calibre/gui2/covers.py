@@ -7,7 +7,7 @@ __copyright__ = '2014, Kovid Goyal <kovid at kovidgoyal.net>'
 
 from collections import OrderedDict
 
-from PyQt5.Qt import (
+from qt.core import (
     QWidget, QHBoxLayout, QTabWidget, QLabel, QSizePolicy, QSize, QFormLayout,
     QSpinBox, pyqtSignal, QPixmap, QDialog, QVBoxLayout, QDialogButtonBox,
     QListWidget, QListWidgetItem, Qt, QGridLayout, QPushButton, QIcon, QApplication,
@@ -182,8 +182,8 @@ class CoverSettingsWidget(QWidget):
 
         for x, label, size_label in (
                 ('title', _('&Title font family:'), _('&Title font size:')),
-                ('subtitle', _('&Subtitle font family'), _('&Subtitle font size:')),
-                ('footer', _('&Footer font family'), _('&Footer font size')),
+                ('subtitle', _('&Subtitle font family:'), _('&Subtitle font size:')),
+                ('footer', _('&Footer font family:'), _('&Footer font size:')),
         ):
             attr = '%s_font_family' % x
             ff = FontFamilyChooser(fp)

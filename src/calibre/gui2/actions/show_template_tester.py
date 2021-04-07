@@ -7,7 +7,7 @@ __copyright__ = '2010, Kovid Goyal <kovid@kovidgoyal.net>'
 __docformat__ = 'restructuredtext en'
 
 
-from PyQt5.Qt import QDialog
+from qt.core import QDialog
 from calibre.gui2.actions import InterfaceAction
 from calibre.gui2.dialogs.template_dialog import TemplateDialog
 from calibre.gui2 import error_dialog
@@ -35,17 +35,15 @@ class ShowTemplateTesterAction(InterfaceAction):
         rows = view.selectionModel().selectedRows()
         if not rows:
             return error_dialog(self.gui, _('No books selected'),
-                    _('One book must be selected'), show=True)
-        if len(rows) > 1:
-            return error_dialog(self.gui, _('Selected multiple books'),
-                    _('Only one book can be selected'), show=True)
-
-        index = rows[0]
-        if index.isValid():
-            db = view.model().db
+                    _('At least one book must be selected'), show=True)
+        mi = []
+        db = view.model().db
+        for row in rows:
+            if row.isValid():
+                mi.append(db.new_api.get_proxy_metadata(db.data.index_to_id(row.row())))
+        if mi:
             t = TemplateDialog(self.gui, self.previous_text,
-                   mi=db.get_metadata(index.row(), index_is_id=False, get_cover=False),
-                   text_is_placeholder=self.first_time)
+                   mi, text_is_placeholder=self.first_time)
             t.setWindowTitle(_('Template tester'))
             if t.exec_() == QDialog.DialogCode.Accepted:
                 self.previous_text = t.rule[1]

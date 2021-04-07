@@ -7,7 +7,7 @@ __copyright__ = '2014, Kovid Goyal <kovid at kovidgoyal.net>'
 
 import importlib
 import sys
-from PyQt5.Qt import QToolButton
+from qt.core import QToolButton
 
 from calibre import prints
 from calibre.customize.ui import all_edit_book_tool_plugins
@@ -62,7 +62,7 @@ class Tool(object):
     def register_shortcut(self, qaction, unique_name, default_keys=(), short_text=None, description=None, **extra_data):
         '''
         Register a keyboard shortcut that will trigger the specified ``qaction``. This keyboard shortcut
-        will become automatically customizable by the user in the Keyboard section of the editor preferences.
+        will become automatically customizable by the user in the Keyboard shortcuts section of the editor preferences.
 
         :param qaction: A QAction object, it will be triggered when the
             configured key combination is pressed by the user.

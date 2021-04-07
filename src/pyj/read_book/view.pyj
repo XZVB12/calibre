@@ -17,7 +17,7 @@ from read_book.annotations import AnnotationsManager
 from read_book.bookmarks import create_new_bookmark
 from read_book.content_popup import ContentPopupOverlay
 from read_book.globals import (
-    current_book, is_dark_theme, rtl_page_progression, runtime,
+    current_book, current_spine_item, is_dark_theme, rtl_page_progression, runtime,
     set_current_spine_item, ui_operations
 )
 from read_book.goto import get_next_section
@@ -287,10 +287,8 @@ class View:
             'update_cfi': self.on_update_cfi,
             'update_progress_frac': self.on_update_progress_frac,
             'update_toc_position': self.on_update_toc_position,
-            'search_result_not_found': def (data):
-                if ui_operations.search_result_not_found:
-                    ui_operations.search_result_not_found(data.search_result)
-            ,
+            'search_result_not_found': self.search_result_not_found,
+            'search_result_discovered': self.search_result_discovered,
             'annotations': self.on_annotations_message,
             'tts': self.on_tts_message,
             'hints': self.on_hints_message,
@@ -557,12 +555,16 @@ class View:
             self.show_chrome({'initial_panel': 'show_prefs'})
         elif data.name is 'metadata':
             self.overlay.show_metadata()
+        elif data.name is 'edit_book':
+            ui_operations.edit_book(current_spine_item(), self.current_file_progress_frac, self.currently_showing?.selection?.text)
         elif data.name is 'goto_location':
             self.overlay.show_ask_for_location()
-        elif data.name is 'shrink_selection_by_word':
-            self.iframe_wrapper.send_message('modify_selection', direction='backward', granularity='word')
-        elif data.name is 'extend_selection_by_word':
-            self.iframe_wrapper.send_message('modify_selection', direction='forward', granularity='word')
+        elif data.name is 'select_all':
+            self.iframe_wrapper.send_message('modify_selection', granularity='all')
+        elif data.name.startsWith('shrink_selection_by_'):
+            self.iframe_wrapper.send_message('modify_selection', direction='backward', granularity=data.name.rpartition('_')[-1])
+        elif data.name.startsWith('extend_selection_by_'):
+            self.iframe_wrapper.send_message('modify_selection', direction='forward', granularity=data.name.rpartition('_')[-1])
         elif data.name is 'scrollspeed_increase':
             self.update_scroll_speed(SCROLL_SPEED_STEP)
         elif data.name is 'scrollspeed_decrease':
@@ -927,6 +929,9 @@ class View:
         if ui_operations.update_last_read_time:
             ui_operations.update_last_read_time(book)
         pos = {'replace_history':True}
+        if not book.manifest.spine.length:
+            ui_operations.show_error(_('Invalid book'), _('This book is empty, with no items in the spine'))
+            return
         name = book.manifest.spine[0]
         cfi = None
         if initial_position and initial_position.type is 'cfi' and initial_position.data.startswith('epubcfi(/'):
@@ -1092,7 +1097,7 @@ class View:
         if not self.book or not self.book.manifest:
             return
         index, refnum = reference.split('.')
-        index, refnum = int(index), int(refnum)
+        index, refnum = int(index), (int(refnum) if refnum else 1)
         chapter_name = self.book.manifest.spine[index]
         if not chapter_name:
             return False
@@ -1374,11 +1379,39 @@ class View:
         if ui_operations.reference_mode_changed:
             ui_operations.reference_mode_changed(self.reference_mode_enabled)
 
+    def discover_search_result(self, sr):
+        if sr.result_num is 1:
+            self.search_result_discovery = {'queue': v'[]', 'on_discovery': sr.on_discovery, 'in_flight': None, 'discovered': False}
+        if not self.search_result_discovery or self.search_result_discovery.discovered or self.search_result_discovery.on_discovery is not sr.on_discovery:
+            return
+        self.search_result_discovery.queue.push(sr)
+        if not self.search_result_discovery.in_flight:
+            self.show_search_result(self.search_result_discovery.queue.shift())
+
+    def handle_search_result_discovery(self, sr, discovered):
+        if self.search_result_discovery?.on_discovery is sr.on_discovery:
+            self.search_result_discovery.in_flight = None
+            if discovered:
+                self.search_result_discovery.discovered = True
+                ui_operations.search_result_discovered(sr)
+            elif not self.search_result_discovery.discovered and self.search_result_discovery.queue.length:
+                self.show_search_result(self.search_result_discovery.queue.shift())
+
+    def search_result_discovered(self, data):
+        self.handle_search_result_discovery(data.search_result, data.discovered)
+
+    def search_result_not_found(self, data):
+        if ui_operations.search_result_not_found:
+            ui_operations.search_result_not_found(data.search_result)
+        self.handle_search_result_discovery(data.search_result, False)
+
     def show_search_result(self, sr):
         if self.currently_showing.name is sr.file_name:
             self.iframe_wrapper.send_message('show_search_result', search_result=sr)
         else:
             self.show_name(sr.file_name, initial_position={'type':'search_result', 'search_result':sr, 'replace_history':True})
+        if self.search_result_discovery?.on_discovery is sr.on_discovery:
+            self.search_result_discovery.in_flight = sr.result_num
 
     def highlight_action(self, uuid, which):
         spine = self.book.manifest.spine
